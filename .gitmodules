@@ -1,0 +1,9 @@
+[submodule "ext/cuda-driver-wrapper"]
+	path = ext/cuda-driver-wrapper
+	url = https://github.com/Somatic-Cell/cuda-driver-wrapper.git
+[submodule "ext/fpng"]
+	path = ext/fpng
+	url = https://github.com/richgel999/fpng.git
+[submodule "ext/assimp"]
+	path = ext/assimp
+	url = https://github.com/assimp/assimp.git
