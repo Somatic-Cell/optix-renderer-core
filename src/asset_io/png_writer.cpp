@@ -3,7 +3,7 @@
 #include <fpng.h>
 
 #include <cstddef>
-#include <ftream>
+#include <fstream>
 #include <limits>
 #include <mutex>
 #include <stdexcept>
@@ -23,7 +23,7 @@ void write_png(
     constexpr std::uint32_t fpng_max_dimension = 65535;
     
     // 保存しようとしている画像サイズが正常に保存できる範囲かどうかを確認
-    if(iamge.width == 0 || image.height == 0 || image.width > fpng_max_dimension || image.height > fpng_max_dimension)
+    if(image.width == 0 || image.height == 0 || image.width > fpng_max_dimension || image.height > fpng_max_dimension)
     {
         throw std::invalid_argument("fpng image dimensions must be in [1, 2^16)");
     }
@@ -98,7 +98,7 @@ void write_png(
 
     if(encoded.size() > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max()))
     {
-        throw sdt::length_error("Encoded PNG is too large for a single file write");
+        throw std::length_error("Encoded PNG is too large for a single file write");
     }
 
     // ----------------

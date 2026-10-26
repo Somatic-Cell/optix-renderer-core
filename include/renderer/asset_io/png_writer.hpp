@@ -2,7 +2,7 @@
 
 #include <renderer/core/image.hpp>
 
-#include <filsystem>
+#include <filesystem>
 
 namespace renderer::asset_io
 {
@@ -14,4 +14,4 @@ void write_png(
     const SRGB8Image& image             // エンコードしたい画像
 );
 
-}
+} //namespace renderer::asset_io

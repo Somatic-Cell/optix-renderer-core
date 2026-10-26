@@ -1,0 +1,3 @@
+add_library(render_image_processing STATIC display_transform.cpp)
+add_library(renderer::image_processing ALIAS render_image_processing)
+renderer_configure_host(render_image_processing)

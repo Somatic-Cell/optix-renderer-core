@@ -1,0 +1,211 @@
+#include <renderer/asset_io/png_writer.hpp>
+#include <renderer/image_processing/display_transform.hpp>
+#include <renderer/optix_backend/device_context.hpp>
+#include <renderer/renderers/triangle.hpp>
+
+#include <cuda_driver_wrapper/context.hpp>
+#include <cuda_driver_wrapper/device.hpp>
+#include <cuda_driver_wrapper/error.hpp>
+#include <cuda_driver_wrapper/stream.hpp>
+
+#include <optix.h>
+
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <cmath>
+#include <cstdlib>
+#include <filesystem>
+#include <iomanip>
+#include <iostream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+
+#ifndef RENDERER_TRIANGLE_MODULE_PATH
+#error RENDERER_TRIANGLE_MODULE_PATH must be supplied by the build system
+#endif
+
+namespace {
+
+namespace cdw = cuda_driver_wrapper;
+
+struct Options
+{
+    std::filesystem::path module_path = RENDERER_TRIANGLE_MODULE_PATH;
+    std::filesystem::path output_path = "triangle.png";
+    int device_ordinal = 0;
+    bool validation = false;
+    bool help = false;
+};
+
+Options parse_options(int argc, char** argv)
+{
+    Options options;
+    for(int i = 1; i < argc; ++i)
+    {
+        const std::string_view argument(argv[i]);
+        if(argument == "--help" || argument == "-h")
+        {
+            options.help = true;
+            continue;
+        }
+        if(argument == "--validation")
+        {
+            options.validation = true;
+            continue;
+        }
+        if(argument != "--module" && argument != "--output" && argument != "--device")
+        {
+            throw std::invalid_argument("Unknown argument: " + std::string(argument));
+        }
+        if(++i == argc)
+        {
+            throw std::invalid_argument("Missing value for " + std::string(argument));
+        }
+        const std::string_view value(argv[i]);
+        if (argument == "--module")
+        {
+            options.module_path = argv[i];
+        }
+        else if(argument == "output")
+        {
+            options.output_path = argv[i];
+        }
+        else 
+        {
+           const auto [end, error] = std::from_chars(
+                value.data(), value.data() + value.size(), options.device_ordinal);
+            if (error != std::errc{} || end != value.data() + value.size()
+                || options.device_ordinal < 0)
+            {
+                throw std::invalid_argument("--device requires a non-negative integer");
+            }
+        }
+    }
+    return options;
+}
+
+void verify_triangle(const renderer::LinearRGBImage& image)
+{
+    for (const auto& pixel : image.pixels)
+    {
+        if (!std::isfinite(pixel.r) || !std::isfinite(pixel.g) || !std::isfinite(pixel.b))
+        {
+            throw std::runtime_error("Readback contains a non-finite pixel");
+        }
+    }
+
+    struct Probe
+    {
+        unsigned int x;
+        unsigned int y;
+        bool inside;
+    };
+    const std::array<Probe, 8> probes{{
+        {0, 0, false},
+        {image.width - 1, 0, false},
+        {0, image.height - 1, false},
+        {image.width - 1, image.height - 1, false},
+        {image.width / 2, image.height / 2, true},
+        {image.width * 5 / 16, image.height * 3 / 4, true},
+        {image.width * 11 / 16, image.height * 3 / 4, true},
+        {image.width / 2, image.height / 4, true}
+    }};
+    double maximum_error = 0.0;
+    for (const auto probe : probes)
+    {
+        std::array<double, 3> expected{0.02, 0.03, 0.05};
+        if (probe.inside)
+        {
+            const double aspect = static_cast<double>(image.width) / image.height;
+            const double x = (2.0 * (probe.x + 0.5) / image.width - 1.0) * aspect;
+            const double y = 1.0 - 2.0 * (probe.y + 0.5) / image.height;
+            const double blue = (y + 0.65) / 1.4;
+            const double green = 0.5 * (1.0 - blue) + x / 1.5;
+            expected = {1.0 - green - blue, green, blue};
+        }
+        const auto& actual = image.pixels[static_cast<std::size_t>(probe.y) * image.width + probe.x];
+        const double error = std::max({
+            std::abs(static_cast<double>(actual.r) - expected[0]),
+            std::abs(static_cast<double>(actual.g) - expected[1]),
+            std::abs(static_cast<double>(actual.b) - expected[2])
+        });
+        maximum_error = std::max(maximum_error, error);
+        if (error > 5.0e-5)
+        {
+            throw std::runtime_error(
+                "Triangle verification failed at pixel (" + std::to_string(probe.x)
+                + ", " + std::to_string(probe.y) + ")");
+        }
+    }
+    std::cout << "Readback check: PASS (all pixels finite, 8 analytic probes; max error "
+              << std::scientific << maximum_error << std::defaultfloat << ")\n";
+}
+
+} // namespace
+
+int main(int argc, char** argv)
+{
+    try
+    {
+        const Options options = parse_options(argc, argv);
+        if (options.help)
+        {
+            std::cout << "Usage: render_cli [--module path] [--output path] [--device ordinal] [--validation]\n"
+                         "Defaults: OptiX IR generated by CMake, triangle.png, CUDA device 0.\n"
+                         "Renders an 800 x 600 single triangle. Validation is off by default.\n";
+            return EXIT_SUCCESS;
+        }
+        std::cout << "OptiX header version: " << OPTIX_VERSION << '\n'
+                  << "CUDA header version: " << CUDA_VERSION << '\n'
+                  << "Module: " << options.module_path << '\n';
+        if (!std::filesystem::is_regular_file(options.module_path))
+        {
+            throw std::runtime_error("OptiX IR file not found; build render_cli first or use --module");
+        }
+
+        cdw::initialize_driver();
+        if (options.device_ordinal >= cdw::get_device_count())
+        {
+            throw std::runtime_error("Requested CUDA device is unavailable");
+        }
+        const CUdevice device = cdw::get_device(options.device_ordinal);
+        const auto info = cdw::get_device_info(device);
+        int driver_version = 0;
+        cdw::check_cuda(cuDriverGetVersion(&driver_version), "cuDriverGetVersion");
+        std::cout << "GPU: " << info.name << " (compute capability "
+                  << info.compute_capability_major << '.' << info.compute_capability_minor << ")\n"
+                  << "CUDA driver API version: " << driver_version << '\n'
+                  << "OptiX validation: " << (options.validation ? "enabled" : "disabled") << '\n';
+
+        renderer::LinearRGBImage image;
+        {
+            // Destruction is in reverse order: job, stream, OptiX, then CUDA.
+            cdw::RetainPrimaryContext cuda_context(device);
+            renderer::optix_backend::DeviceContext optix_context(
+                cuda_context.handle(), options.validation);
+            cdw::Stream stream(cuda_context.handle());
+            renderer::triangle::RenderJob job(optix_context, stream, options.module_path);
+            job.submit();
+            job.wait();
+            image = job.take_image();
+        }
+
+        verify_triangle(image);
+        const auto display_image = renderer::image_processing::linear_to_srgb8(image);
+        if (!options.output_path.parent_path().empty())
+        {
+            std::filesystem::create_directories(options.output_path.parent_path());
+        }
+        renderer::asset_io::write_png(options.output_path, display_image);
+        std::cout << "Saved: " << std::filesystem::absolute(options.output_path)
+                  << " (" << image.width << " x " << image.height << ")\n";
+        return EXIT_SUCCESS;
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << "render_cli: " << error.what() << '\n';
+        return EXIT_FAILURE;
+    }
+}

@@ -4,3 +4,4 @@
 /*.png
 CMakeUserPresets.json
 .vscode/
+*.bat
