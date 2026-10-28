@@ -7,3 +7,6 @@
 [submodule "ext/assimp"]
 	path = ext/assimp
 	url = https://github.com/assimp/assimp.git
+[submodule "ext/cuda_render_math"]
+	path = ext/cuda_render_math
+	url = https://github.com/Somatic-Cell/cuda-render-math.git
