@@ -1,11 +1,11 @@
 #pragma once
 
-#include <renderer/core/image.hpp>
+#include <renderer/gpu/image_view.hpp>
 
 #include <filesystem>
 #include <memory>
 
-namespace cuda_driver_wrapper {class Stream; }
+namespace cuda_driver_wrapper {class Stream; class Event; }
 namespace renderer::optix_backend {class DeviceContext; }
 
 namespace renderer::triangle
@@ -44,7 +44,8 @@ public:
     void wait();
 
     // CPU 上にある画素群を返す
-    [[nodiscard]] LinearRGBImage take_image();
+    [[nodiscard]] gpu::ConstLinearRGBImageView iamge() const;
+    [[nodiscard]] const cuda_driver_wrapper::Event& compelation_event() const;
 
 private:
     struct Impl;

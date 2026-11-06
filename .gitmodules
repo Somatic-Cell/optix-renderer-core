@@ -10,3 +10,12 @@
 [submodule "ext/cuda_render_math"]
 	path = ext/cuda_render_math
 	url = https://github.com/Somatic-Cell/cuda-render-math.git
+[submodule "ext/--recursive"]
+	path = ext/--recursive
+	url = https://github.com/nlohmann/json.git
+[submodule "json"]
+	path = json
+	url = https://github.com/nlohmann/json.git
+[submodule "ext/json"]
+	path = ext/json
+	url = https://github.com/nlohmann/json.git

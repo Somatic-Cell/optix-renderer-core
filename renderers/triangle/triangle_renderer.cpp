@@ -24,7 +24,6 @@
 #include <span>
 #include <stdexcept>
 #include <type_traits>
-#include <vector>
 
 namespace renderer::triangle
 {
@@ -250,20 +249,25 @@ struct RenderJob::Impl
         }
     }
 
-    LinearRGBImage take_image()
+    gpu::ConstLinearRGBImageView image() const 
     {
-        if (state == State::consumed)
+        if (state != State::submitted && state !=  State::complete)
         {
-            throw std::logic_error("The triangle image has already been taken");
+            throw std::logic_error("iamge() requires a successfully submitted triangle job");
         }
-        if (!is_ready())
+        return {
+            device_pixels.view(), settings.width, settings.height,
+            cuda::checked_byte_size(settings.width, sizeof(RGB32f))
+        };
+    }
+
+    const cuda::Event& completion_event() const
+    {
+        if (state != State::submitted && state != State::complete)
         {
-            throw std::logic_error("The triangle image is not ready; wait or poll first");
+            throw std::logic_error("completion_event() requires a successfully submitted triangle job");
         }
-        LinearRGBImage image{settings.width, settings.height, std::vector<RGB32f>(pixel_count)};
-        std::memcpy(image.pixels.data(), host_pixels.bytes().data(), image_bytes);
-        state = State::consumed;
-        return image;
+        return completed;
     }
 };
 
@@ -280,6 +284,7 @@ RenderJob::~RenderJob() noexcept = default;
 void RenderJob::submit() { impl_->submit(); }
 bool RenderJob::is_ready() { return impl_->is_ready(); }
 void RenderJob::wait() { impl_->wait(); }
-LinearRGBImage RenderJob::take_image() { return impl_->take_image(); }
+gpu::ConstLinearRGBImageView RenderJob::image() const { return impl_->image(); }
+const cuda::Event& RenderJob::compelation_event() const {return impl_->completion_event(); }
 
 } // namespace renderer::triangle

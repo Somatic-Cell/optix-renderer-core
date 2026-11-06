@@ -43,7 +43,7 @@ void check_optix(
     message += "\n";
     message += location.file_name();
     message += ":" + std::to_string(location.line());
-    throw std::runtime_error(message);
+    throw OptixError(result, message);
 }
 
 void check_optix_log(
@@ -79,6 +79,18 @@ void report_optix_cleanup(OptixResult result, const char* operation) noexcept
             operation, error_name(result), static_cast<int>(result),
             error_description(result));
     }
+}
+
+OptixError::OptixError(
+    OptixResult result,
+    const std::string& message
+) : std::runtime_error(message), result
+{
+}
+
+OptixResult OptixError::result() const noexcept
+{
+    return result_;
 }
 
 } // namespace renderer::optix_backend

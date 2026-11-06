@@ -1,0 +1,4 @@
+add_library(renderer_output STATIC srgb8_readback.cpp)
+add_library(renderer::output ALIAS renderer_output)
+renderer_configure_host(renderer_output)
+target_link_libraries(renderer_output PUBLIC renderer::image_processing)
