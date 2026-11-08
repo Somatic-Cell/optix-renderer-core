@@ -12,30 +12,19 @@
 namespace renderer::asset_io
 {
 
-// fpng を使って PNG ファイルをエンコードし，保存する
-void write_png(
-    const std::filesystem::path& path,  // 保存先のパス
-    const SRGB8Image& image             // エンコードしたい画像
-)
+void validate_png_dimensions(std::uint32_t width, std::uint32_t height)
 {
+
     // fpng は，IHDR (画像ヘッダ) に書き込む画像のサイズを 16-bit で表現している
     // そのため，fpng の実装内で正しく動かすために 2^16 -1 以上の画素数を受け付けないようにする 
     constexpr std::uint32_t fpng_max_dimension = 65535;
     
     // 保存しようとしている画像サイズが正常に保存できる範囲かどうかを確認
-    if(image.width == 0 || image.height == 0 || image.width > fpng_max_dimension || image.height > fpng_max_dimension)
+    if(width == 0 || height == 0 || width > fpng_max_dimension || height > fpng_max_dimension)
     {
         throw std::invalid_argument("fpng image dimensions must be in [1, 2^16)");
     }
 
-    // ディスクリプタの画素数と実際に格納されている画素数が不整合でないかどうかを確認
-    const std::uint64_t pixel_count = static_cast<std::uint64_t>(image.width) * image.height;
-    if(pixel_count > std::numeric_limits<std::size_t>::max() / sizeof(RGB8)
-        || image.pixels.size() != static_cast<std::size_t>(pixel_count))
-    {
-        throw std::invalid_argument("sRGB image dimensions do not match its pixel count");
-    }
-    
     // ----------------
     // コーデックを呼ぶ前に，最悪のケースのファイルサイズを確認する
     // fpng は 32-bit のオフセットを使う
@@ -46,8 +35,8 @@ void write_png(
     // フィルタ処理にはいくつかの方法があり，この処理方法を Filter type として各行の先頭に 1Byte メタデータとして置く
     // 例: 0: None, 1: Sub, 2: Up, ...
     const std::uint64_t filtered_bytes = (
-            static_cast<std::uint64_t>(image.width) * 3 + 1 // 各行 width x 3 (RGB) 画素に加え, Filter type 1 Byte 分が追加される
-        )  * image.height;
+            static_cast<std::uint64_t>(width) * 3 + 1 // 各行 width x 3 (RGB) 画素に加え, Filter type 1 Byte 分が追加される
+        )  * height;
     
     // fpng では，圧縮を試みた後，Deflate の非圧縮ブロック形式に切り替える
     // Deflate は圧縮データの形式の一つ
@@ -78,7 +67,24 @@ void write_png(
     {
         throw std::length_error("Image exceeds fpng's single-IDAT size limit");
     }
+}
 
+// fpng を使って PNG ファイルをエンコードし，保存する
+void write_png(
+    const std::filesystem::path& path,  // 保存先のパス
+    const SRGB8ImageView image          // エンコードしたい画像
+)
+{
+    validate_png_dimensions(image.width, image.height);
+    
+    // ディスクリプタの画素数と実際に格納されている画素数が不整合でないかどうかを確認
+    const std::uint64_t pixel_count = static_cast<std::uint64_t>(image.width) * image.height;
+    if(pixel_count > std::numeric_limits<std::size_t>::max() / sizeof(RGB8)
+        || image.bytes.size() != static_cast<std::size_t>(pixel_count) * sizeof(RGB8))
+    {
+        throw std::invalid_argument("sRGB image dimensions do not match its pixel count");
+    }
+    
     // ----------------
     // fpng の初期化
     // ----------------
@@ -90,7 +96,7 @@ void write_png(
     // ----------------
     std::vector<std::uint8_t> encoded;
     if(!fpng::fpng_encode_image_to_memory(
-        image.pixels.data(), image.width, image.height, 3, encoded
+        image.bytes.data(), image.width, image.height, 3, encoded
     ))
     {
         throw std::runtime_error("fpng failed to encode the PNG image");
@@ -118,6 +124,11 @@ void write_png(
     {
         throw std::runtime_error("Failed to write or close the output PNG file");
     }
+}
+
+void write_png(const std::filesystem::path& path, const SRGB8Image& image)
+{
+    write_png(path, SRGB8ImageView{image.width, image.height, std::as_bytes(std::span(image.pixels))});
 }
 
 

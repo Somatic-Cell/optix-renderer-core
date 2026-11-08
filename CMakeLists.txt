@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.27)
 
 project(renderer VERSION 0.1.0 LANGUAGES CXX)
 
+include(CTest)
+option(RENDERER_ENABLE_GPU_TESTS "Register tests that require a CUDA/OptiX GPU" OFF)
+
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "A 64-bit host build is required. Use -A x64 with Visual Studio.")
 endif()

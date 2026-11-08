@@ -8,6 +8,8 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -17,8 +19,24 @@
 
 namespace renderer::app
 {
+namespace
+{
 
-void verify_triangle(gpu::ConstLinearRGBImageView image)
+int reference_output_byte(double linear, double exposure_scale)
+{
+    const double exposed = std::clamp(linear * exposure_scale, 0.0, 1.0);
+    const double encoded = exposed <= 0.0031308
+        ? 12.92 * exposed
+        : 1.055 * std::pow(exposed, 1.0 / 2.4) - 0.055;
+    return static_cast<int>(std::lround(std::clamp(encoded, 0.0, 1.0) * 255.0));
+}
+
+} // namespace
+
+void verify_triangle(
+    gpu::ConstLinearRGBImageView image,
+    SRGB8ImageView readback,
+    const image_processing::OutputTransformSettings& settings)
 {
     namespace cdw = cuda_driver_wrapper;
     if (image.width != 800 || image.height != 600)
@@ -32,6 +50,16 @@ void verify_triangle(gpu::ConstLinearRGBImageView image)
     {
         throw std::invalid_argument("Invalid GPU image layout for triangle verification");
     }
+
+    const auto readback_bytes = cdw::checked_byte_size(
+        cdw::checked_byte_size(image.width, image.height), sizeof(RGB8));
+    if (readback.width != image.width || readback.height != image.height
+        || readback.bytes.size() < readback_bytes)
+    {
+        throw std::invalid_argument("Invalid CPU readback layout for triangle verification");
+    }
+    image_processing::validate_output_transform_settings(settings);
+    const double exposure_scale = std::exp2(static_cast<double>(settings.exposure_ev));
 
     struct Probe
     {
@@ -51,6 +79,7 @@ void verify_triangle(gpu::ConstLinearRGBImageView image)
     }};
 
     double maximum_error = 0.0;
+    int maximum_byte_error = 0;
     for (const auto probe : probes)
     {
         RGB32f actual{};
@@ -88,9 +117,34 @@ void verify_triangle(gpu::ConstLinearRGBImageView image)
                 "Triangle verification failed at pixel (" + std::to_string(probe.x)
                 + ", " + std::to_string(probe.y) + ")");
         }
+
+        // Validate the downloaded bytes independently of the sampled GPU float.
+        const std::array<int, 3> expected_bytes{
+            reference_output_byte(expected[0], exposure_scale),
+            reference_output_byte(expected[1], exposure_scale),
+            reference_output_byte(expected[2], exposure_scale)
+        };
+        RGB8 encoded{};
+        const auto readback_offset =
+            (static_cast<std::size_t>(probe.y) * readback.width + probe.x) * sizeof(RGB8);
+        std::memcpy(&encoded, readback.bytes.data() + readback_offset, sizeof(encoded));
+        const int byte_error = std::max({
+            std::abs(static_cast<int>(encoded.r) - expected_bytes[0]),
+            std::abs(static_cast<int>(encoded.g) - expected_bytes[1]),
+            std::abs(static_cast<int>(encoded.b) - expected_bytes[2])
+        });
+        maximum_byte_error = std::max(maximum_byte_error, byte_error);
+        if (byte_error > 1)
+        {
+            throw std::runtime_error(
+                "Readback verification failed at pixel (" + std::to_string(probe.x)
+                + ", " + std::to_string(probe.y) + ")");
+        }
     }
     std::cout << "Triangle check: PASS (8 analytic probes; max error "
               << std::scientific << maximum_error << std::defaultfloat << ")\n";
+    std::cout << "Readback check: PASS (8 RGB8 probes; max channel error "
+              << maximum_byte_error << ")\n";
 }
 
 } // namespace renderer::app

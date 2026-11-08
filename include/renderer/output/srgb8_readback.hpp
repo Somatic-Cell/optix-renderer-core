@@ -8,28 +8,29 @@
 #include <memory>
 
 namespace cuda_driver_wrapper { class Stream; class Event; }
-namespace render::image_processing {class OutputTransform; }
+namespace renderer::image_processing {class OutputTransform; }
 
 namespace renderer::output
 {
 
-class SRGBReadBack final
+class RGB8Readback final
 {
 public:
-    SRGBReadBack(
-        const image_processing::OutputTransformSettings& transform,
+    RGB8Readback(
+        const image_processing::OutputTransform& transform,
         const cuda_driver_wrapper::Stream& stream,
         std::uint32_t width,
         std::uint32_t height 
     );
-    ~SRGBReadBack() noexcept;
+    ~RGB8Readback() noexcept;
 
     // copy / move の禁止
-    SRGBReadBack(const SRGBReadBack&) = delete;
-    SRGBReadBack& operator=(const SRGBReadBack&) = delete;
-    SRGBReadBack(const SRGBReadBack&&) = delete;
-    SRGBReadBack& operator=(SRGBReadBack&&) = delete;
+    RGB8Readback(const RGB8Readback&) = delete;
+    RGB8Readback& operator=(const RGB8Readback&) = delete;
+    RGB8Readback(const RGB8Readback&&) = delete;
+    RGB8Readback& operator=(RGB8Readback&&) = delete;
 
+    // 1 回だけよぶ
     // GPU での画像の変換と CPU への転送を依頼する
     // 呼び出した CPU スレッドは GPU の完了を待たない
     void submit(

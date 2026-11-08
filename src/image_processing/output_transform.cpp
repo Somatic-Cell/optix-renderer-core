@@ -62,7 +62,7 @@ void validate_memory(
         memory.data % alignment != 0            // 
     )
     {
-        throw std::invalid_argument("Invalid GPU image/status memory view");
+        throw std::invalid_argument("Invalid GPU image memory view");
     }
 
     // 
@@ -77,7 +77,7 @@ bool is_overlapped(
     CUdeviceptr first, 
     std::size_t first_size, 
     CUdeviceptr second, 
-    CUdeviceptr second_size
+    std::size_t second_size
 ){
     return first < second + second_size && second < first + first_size;
 }
@@ -147,7 +147,7 @@ void OutputTransform::enqueue(
     std::uint32_t width = input.width;
     std::uint32_t height = input.height;
     float exposure_scale = std::exp2(settings.exposure_ev);
-    std::array<void*, 8> arguments{
+    auto arguments = std::to_array<void*>({
         &source,
         &source_stride,
         &destination,
@@ -155,7 +155,7 @@ void OutputTransform::enqueue(
         &width,
         &height,
         &exposure_scale
-    };
+    });
 
     cdw::LaunchConfig launch;
     launch.block_x = 16;

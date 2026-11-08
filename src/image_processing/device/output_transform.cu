@@ -6,10 +6,15 @@
 namespace 
 {
 
-__device__ std::uint8_t encode_channel(float linear)
+__device__ std::uint8_t encode_channel(
+    float linear,
+    float exposure_scale,
+    float clip_limit
+)
 {
     // 範囲外を clamp
-    linear = fminf(fmaxf(linear, 0.0f), 1.0f);
+    linear = fminf(fmaxf(linear, 0.0f), clip_limit);
+    linear = fminf(linear * exposure_scale, 1.0f);
     const float encoded = linear <= 0.0031308f
         ? 12.92f * linear
         : 1.055f * powf(linear, 1.0 / 2.4) - 0.055;
@@ -57,24 +62,13 @@ extern "C" __global__ void renderer_linear_to_srgb8(
         output_row[x] = {0, 0, 0};
         return;
     }
-
-    // 露出補正
-    const renderer::RGB32f exposed{
-        input.r * exposure_scale,
-        input.g * exposure_scale,
-        input.b * exposure_scale
-    };
-
-    if(!isfinite(exposed.r) || !isfinite(exposed.g) || !isfinite(exposed.b))
-    {
-        output_row[x] = {0, 0, 0};
-        return;
-    }
+    
+    const float clip_limit = 1.0f / exposure_scale;
 
     output_row[x] = {
-        encode_channel(exposed.r),
-        encode_channel(exposed.g),
-        encode_channel(exposed.b)
+        encode_channel(input.r, exposure_scale, clip_limit),
+        encode_channel(input.g, exposure_scale, clip_limit),
+        encode_channel(input.b, exposure_scale, clip_limit)
     };
 
 

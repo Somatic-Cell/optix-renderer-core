@@ -24,11 +24,11 @@ CUcontext checked_context(
     const cdw::Stream& stream
 )
 {
-    if(!steam.is_valid() || steam.context() != transform.context())
+    if(!stream.is_valid() || stream.context() != transform.context())
     {
         throw std::invalid_argument("Readback stream must match output transform context");
     }
-    return transform.context;
+    return transform.context();
 }
 
 std::size_t checked_image_size(
@@ -46,7 +46,7 @@ std::size_t checked_image_size(
 
 } // namespace
 
-struct SRGBReadback::Impl
+struct RGB8Readback::Impl
 {
     enum class State {
         idle,           // まだ処理を依頼していない初期状態．readback は 1 回だけ行う
@@ -56,7 +56,7 @@ struct SRGBReadback::Impl
     };
     
     const image_processing::OutputTransform& transform;
-    const cuda::Stream& stream;
+    const cdw::Stream& stream;
     CUcontext context;
     std::uint32_t width;
     std::uint32_t height;
@@ -77,6 +77,7 @@ struct SRGBReadback::Impl
         context(checked_context(transform, stream)),
         width(width_in),
         height(height_in),
+        image_bytes(checked_image_size(width, height)),
         device_pixels(context, image_bytes),
         host_pixels(context, image_bytes),
         completed(context)
@@ -92,11 +93,12 @@ struct SRGBReadback::Impl
 
         try
         {
+            //投入の途中で例外になった場合でも，バッファを解放する前に処理の完了を待つ
             cdw::synchronize_stream(stream);
         }
         catch(const std::exception& error)
         {
-            std::fprintf(stderr, "[RGB8 readback cleanup] %s\n", error.what())
+            std::fprintf(stderr, "[RGB8 readback cleanup] %s\n", error.what());
         }
         catch(...)
         {
@@ -133,22 +135,22 @@ struct SRGBReadback::Impl
 
         // 設定が正しいかどうかを判断
         image_processing::validate_output_transform_settings(settings);
-
-        pending = true;
-
-        // 画像のレンダリングが終わるまで待つ
-        // 書き戻しはレンダリングが完了してから
-        cdw::stream_wait_event(stream, producer_completion);
         
-        const gpu::SRGB8ImageView destination{
+        const gpu::SRGBImageView destination{
             device_pixels.view(),
             width,
             height,
             cdw::checked_byte_size(width, sizeof(RGB8))
         };
 
+        pending = true;
+
+        // 画像のレンダリングが終わるまで待つ
+        // 書き戻しはレンダリングが完了してから
+        cdw::stream_wait_event(stream, producer_completion);
+
         // ポストプロセスの処理をストリームに投入
-        transform.enqueue(input, destination, device_status.view(), stream, settings);
+        transform.enqueue(input, destination, stream, settings);
         // 画像の読み戻し処理を投入
         cdw::copy_device_to_host_async(host_pixels.view(), device_pixels.view(), stream);
         // 読み戻しまで終わったかどうかを記録するイベントを記録
@@ -183,7 +185,7 @@ struct SRGBReadback::Impl
                 return false;
             }
             // 完了した
-            state = State::complate;
+            state = State::complete;
             pending = false;
             return true;
         }
@@ -198,14 +200,23 @@ struct SRGBReadback::Impl
         // 待っても無意味な状態
         if (state == State::idle || state == State::failed)
         {
-            throw::logic_error("wait() requires a successfully submitted RGB8 readback");
+            throw std::logic_error("wait() requires a successfully submitted RGB8 readback");
         }
 
         // 処理を依頼したが呼び戻しが完了していない
         if (state == State::submitted)
         {
             // 処理の完了を待つ
-            cdw::synchronize_event(completed);
+            try
+            {
+                cdw::synchronize_event(completed);
+            }
+            catch(...)
+            {
+                state = State::failed;
+                throw;
+            }
+
             state = State::complete;
             pending = false;
         }
@@ -220,21 +231,22 @@ struct SRGBReadback::Impl
             throw std::logic_error("RGB8 readback is not ready; wait or poll first");
         }
 
-        return {width, height, host_pixels().bytes()};
+        return {width, height, host_pixels.bytes()};
     } 
 };
 
-SRGBReadBack::SRGBReadBack(
-    const imaeg_processing::OutputTransform& transform,
+RGB8Readback::RGB8Readback(
+    const image_processing::OutputTransform& transform,
     const cdw::Stream& stream,
-    cstd::uint32_t width, std::uint32_t height
+    std::uint32_t width, 
+    std::uint32_t height
 ) : impl_(std::make_unique<Impl>(transform, stream, width, height))
 {
 }
 
-SRGBReadBack::~SRGBReadBack() noexcept = default;
+RGB8Readback::~RGB8Readback() noexcept = default;
 
-void SRGBReadback::submit(
+void RGB8Readback::submit(
     gpu::ConstLinearRGBImageView input,
     const cuda_driver_wrapper::Event& producer_completion,
     const image_processing::OutputTransformSettings& settings
@@ -243,8 +255,8 @@ void SRGBReadback::submit(
     impl_->submit(input, producer_completion, settings);
 }
 
-bool SRGBReadback::is_ready() { return impl_->is_ready(); }
-void SRGBReadback::wait() { impl_->wait(); }
-SRGB8ImageView SRGBReadBack::view() { return impl_->view(); }
+bool RGB8Readback::is_ready() { return impl_->is_ready(); }
+void RGB8Readback::wait() { impl_->wait(); }
+SRGB8ImageView RGB8Readback::view() { return impl_->view(); }
 
 } // namespace renderer::output

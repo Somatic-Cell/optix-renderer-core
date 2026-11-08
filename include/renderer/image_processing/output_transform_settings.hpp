@@ -37,7 +37,7 @@ inline void validate_exposure_ev(double exposure_ev)
     }
 }
 
-void validate_output_transform_settings(
+inline void validate_output_transform_settings(
     const OutputTransformSettings& settings
 )
 {

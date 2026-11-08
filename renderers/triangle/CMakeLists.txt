@@ -31,3 +31,7 @@ target_include_directories(renderer_triangle_programs
 add_dependencies(renderer_triangle renderer_triangle_programs)
 
 add_subdirectory(app)
+
+if(BUILD_TESTING AND RENDERER_ENABLE_GPU_TESTS)
+    add_subdirectory(tests)
+endif()

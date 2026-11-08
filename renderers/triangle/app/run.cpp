@@ -44,13 +44,13 @@ void render_triangle(
         optix_context, render_stream, triangle_module,
         {config.renderer.width, config.renderer.height});
     image_processing::OutputTransform transform(cuda_context.handle(), output_module);
-    output::Srgb8Readback readback(
+    output::RGB8Readback readback(
         transform, output_stream, config.renderer.width, config.renderer.height);
 
     render.submit();
     // The output stream waits on the producer event on the GPU. The CPU does
     // not wait for rendering before it submits conversion and readback.
-    readback.submit(render.image(), render.completion_event(), output_settings);
+    readback.submit(render.image(), render.completion_event(), config.output.transform);
     readback.wait();
     const auto image = readback.view();
 
@@ -58,7 +58,7 @@ void render_triangle(
     {
         // Optional diagnostic: copy only eight linear pixels (96 bytes).
         // readback.wait() above also guarantees that rendering has completed.
-        verify_triangle(render.image());
+        verify_triangle(render.image(), image, config.output.transform);
     }
 
     if (!config.output.path.parent_path().empty())
@@ -74,12 +74,6 @@ int run(
     const config::RenderConfig& config,
     const std::filesystem::path& module_directory)
 {
-    output::validate_output_settings(config.output);
-    
-    if (config.renderer.type != config::RendererType::triangle)
-    {
-        throw std::invalid_argument("Unsupported renderer type");
-    }
     const auto triangle_module = module_directory / "triangle" / "programs.optixir";
     const auto output_module = module_directory / "image_processing" / "output_transform.fatbin";
     if (!std::filesystem::is_regular_file(triangle_module)
@@ -110,8 +104,8 @@ int run(
     render_triangle(config, device, triangle_module, output_module);
     std::cout << "Saved: " << std::filesystem::absolute(config.output.path)
               << " (" << config.renderer.width << " x " << config.renderer.height
-              << ", RGB8 / sRGB, tone mapping: clip, exposure EV: "
-              << config.output.exposure_ev << ")\n";
+              << ", RGB8, transfer: sRGB, tone mapping: clip, exposure EV: "
+              << config.output.transform.exposure_ev << ")\n";
     return EXIT_SUCCESS;
 }
 
