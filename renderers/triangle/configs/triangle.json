@@ -10,7 +10,7 @@
     "height": 600
   },
   "output": {
-    "path": "../output/triangle.png",
+    "path": "../../../output/triangle.png",
     "format": "png",
     "color_encoding": "srgb",
     "tone_mapping": "clip",

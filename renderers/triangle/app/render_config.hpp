@@ -1,6 +1,6 @@
 #pragma once 
 
-#include <output/output_settings.hpp>
+#include <renderer/output/output_settings.hpp>
 
 #include <cstdint>
 #include <filesystem>
@@ -16,7 +16,7 @@ struct DeviceSettings
 {
     int ordinal = 0;
     bool optix_validation = false;
-}
+};
 
 // 
 struct RendererSettings

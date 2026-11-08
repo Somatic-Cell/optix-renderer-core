@@ -1,4 +1,4 @@
-#include <renderer/renderers/triangle.hpp>
+#include <renderer/render_job.hpp>
 #include <renderer/optix_backend/device_context.hpp>
 #include <renderer/optix_backend/error.hpp>
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <renderer/config/render_config.hpp>
+#include "render_config.hpp"
 
 #include <filesystem>
 

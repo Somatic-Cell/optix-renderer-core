@@ -1,6 +1,6 @@
 #include "run.hpp"
 
-#include <renderer/config/render_config.hpp>
+#include "render_config.hpp"
 
 #include <cstdlib>
 #include <exception>
@@ -85,7 +85,7 @@ int run_cli(int argc, Char** argv)
         if (options.help)
         {
             std::cout
-                << "Usage: render_cli --config FILE [--modules DIRECTORY]\n"
+                << "Usage: triangle_cli --config FILE [--modules DIRECTORY]\n"
                 << "JSON output paths are relative to the configuration file.\n"
                 << "--modules overrides the module directory selected by CMake.\n"
                 << "Command-line paths are relative to the working directory.\n";
@@ -97,7 +97,7 @@ int run_cli(int argc, Char** argv)
     }
     catch (const std::exception& error)
     {
-        std::cerr << "render_cli: " << error.what() << '\n';
+        std::cerr << "triangle_cli: " << error.what() << '\n';
         return EXIT_FAILURE;
     }
 }

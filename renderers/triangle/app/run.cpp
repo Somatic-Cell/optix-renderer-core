@@ -6,7 +6,7 @@
 #include <renderer/optix_backend/device_context.hpp>
 #include <renderer/output/output_settings.hpp>
 #include <renderer/output/srgb8_readback.hpp>
-#include <renderer/renderers/triangle.hpp>
+#include <renderer/render_job.hpp>
 
 #include <cuda_driver_wrapper/context.hpp>
 #include <cuda_driver_wrapper/device.hpp>
@@ -86,7 +86,7 @@ int run(
         || !std::filesystem::is_regular_file(output_module))
     {
         throw std::runtime_error(
-            "GPU module file not found; build render_cli or specify --modules DIRECTORY");
+            "GPU module file not found; build triangle_cli or specify --modules DIRECTORY");
     }
 
     std::cout << "OptiX header version: " << OPTIX_VERSION << '\n'

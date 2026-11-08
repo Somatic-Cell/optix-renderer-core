@@ -3,7 +3,7 @@ include_guard(GLOBAL)
 
 function(renderer_configure_host target)
     target_compile_features(${target} PUBLIC cxx_std_20)
-    set_target_properties(${target} PROPERTIES ECC_EXTENSIONS OFF)
+    set_target_properties(${target} PROPERTIES CXX_EXTENSIONS OFF)
     target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}/include")
     if(MSVC)
         target_compile_options(${target} PRIVATE

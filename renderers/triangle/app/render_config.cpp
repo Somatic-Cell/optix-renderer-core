@@ -1,4 +1,4 @@
-#include <renderer/config/render_config.hpp>
+#include "render_config.hpp"
 #include <renderer/image_processing/output_transform_settings.hpp>
 
 #include <nlohmann/json.hpp>
