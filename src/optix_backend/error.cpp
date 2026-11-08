@@ -84,7 +84,7 @@ void report_optix_cleanup(OptixResult result, const char* operation) noexcept
 OptixError::OptixError(
     OptixResult result,
     const std::string& message
-) : std::runtime_error(message), result
+) : std::runtime_error(message), result_(result)
 {
 }
 

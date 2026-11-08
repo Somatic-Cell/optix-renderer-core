@@ -1,4 +1,5 @@
 #include <renderer/config/render_config.hpp>
+#include <renderer/image_processing/output_transform_settings.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -139,11 +140,18 @@ float get_exposure(const Json& value)
     {
         throw_invalid(field, "must be a number");
     }
+
     const double result = value.get<double>();
-    if(!std::isfinite(result) || result < -32.0 || result > 32.0)
+    
+    try
     {
-        throw_invalid(field, "must be finite and in [-32, 32]");
+        image_processing::validate_exposure_ev(result);
     }
+    catch(const std::invalid_argument& error)
+    {
+        throw_invalid("output", error.what());
+    }
+
     return static_cast<float>(result);
 }
 

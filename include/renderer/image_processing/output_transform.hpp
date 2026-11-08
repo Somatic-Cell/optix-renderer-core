@@ -28,7 +28,7 @@ public:
     void enqueue(
         gpu::ConstLinearRGBImageView input,
         gpu::SRGBImageView output,
-        const cuda_driver_wapper::Stream& stream,
+        const cuda_driver_wrapper::Stream& stream,
         const OutputTransformSettings& settings = {}
     ) const;
 

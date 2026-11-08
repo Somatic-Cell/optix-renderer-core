@@ -1,5 +1,7 @@
 #pragma once 
 
+#include <output/output_settings.hpp>
+
 #include <cstdint>
 #include <filesystem>
 
@@ -8,21 +10,6 @@ namespace renderer::config
 
 enum class RendererType {
     triangle
-};
-
-// 出力画像のフォーマット
-enum class OutputFormat {
-    png
-};
-
-// 色空間
-enum class ColorEncoding {
-    sRGB
-};
-
-// トーンマップの方法
-enum class ToneMapping {
-    clip
 };
 
 struct DeviceSettings
@@ -39,14 +26,6 @@ struct RendererSettings
     std::uint32_t height = 600;
 };
 
-struct OutputSettings
-{
-    std::filesystem::path path = "triangle.png";
-    OutputFormat format = OutputFormat::png;
-    ColorEncoding color_encoding = ColorEncoding::sRGB;
-    ToneMapping tone_mapping = ToneMapping::clip;
-    float exposure_ev = 0.0f;
-};
 
 struct DiagnosticsSettings
 {
@@ -57,7 +36,7 @@ struct  RenderConfig
 {
     DeviceSettings device;
     RendererSettings renderer;
-    OutputSettings output;
+    output::OutputSettings output{.path = "triangle.png"};
     DiagnosticsSettings diagnostics;
 };
 

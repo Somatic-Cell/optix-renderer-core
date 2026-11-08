@@ -54,7 +54,7 @@ std::size_t checked_pixel_count(Settings settings)
 
 struct RenderJob::Impl
 {
-    enum class State { idle, submitted, complete, consumed, failed };
+    enum class State { idle, submitted, complete, failed };
 
     const optix_backend::DeviceContext& context;
     const cuda::Stream& stream;
@@ -72,7 +72,6 @@ struct RenderJob::Impl
     cuda::PinnedHostBuffer host_vertices;
     cuda::PinnedHostBuffer host_sbt;
     cuda::PinnedHostBuffer host_params;
-    cuda::PinnedHostBuffer host_pixels;
     cuda::Event completed;
 
     CUdeviceptr vertex_address = 0;
@@ -98,7 +97,6 @@ struct RenderJob::Impl
           host_vertices(context.cuda_context(), 3 * sizeof(float3)),
           host_sbt(context.cuda_context(), 3 * sizeof(SbtRecord)),
           host_params(context.cuda_context(), sizeof(LaunchParams)),
-          host_pixels(context.cuda_context(), image_bytes),
           completed(context.cuda_context())
     {
         if (!stream.is_valid() || stream.context() != context.cuda_context())
@@ -206,7 +204,6 @@ struct RenderJob::Impl
             pipeline.handle(), stream.handle(), device_params.device_ptr(),
             device_params.size_bytes(), &sbt, settings.width, settings.height, 1),
             "optixLaunch");
-        cuda::copy_device_to_host_async(host_pixels.view(), device_pixels.view(), stream);
         cuda::record_event(completed, stream);
         current.restore();
         state = State::submitted;
@@ -221,7 +218,6 @@ struct RenderJob::Impl
         case State::failed:
             throw std::logic_error("The triangle job failed; no image can be published");
         case State::complete:
-        case State::consumed:
             return true;
         case State::submitted:
             if (!cuda::is_event_ready(completed))
@@ -249,11 +245,11 @@ struct RenderJob::Impl
         }
     }
 
-    gpu::ConstLinearRGBImageView image() const 
+    gpu::ConstLinearRGBImageView image() const
     {
-        if (state != State::submitted && state !=  State::complete)
+        if (state != State::submitted && state != State::complete)
         {
-            throw std::logic_error("iamge() requires a successfully submitted triangle job");
+            throw std::logic_error("image() requires a successfully submitted triangle job");
         }
         return {
             device_pixels.view(), settings.width, settings.height,
@@ -285,6 +281,7 @@ void RenderJob::submit() { impl_->submit(); }
 bool RenderJob::is_ready() { return impl_->is_ready(); }
 void RenderJob::wait() { impl_->wait(); }
 gpu::ConstLinearRGBImageView RenderJob::image() const { return impl_->image(); }
-const cuda::Event& RenderJob::compelation_event() const {return impl_->completion_event(); }
+const cuda::Event& RenderJob::completion_event() const { return impl_->completion_event(); }
 
 } // namespace renderer::triangle
+

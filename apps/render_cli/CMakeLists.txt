@@ -9,4 +9,4 @@ target_compile_definitions(render_cli PRIVATE
     "RENDERER_TRIANGLE_MODULE_PATH=\"$<TARGET_FILE_DIR:render_cli>/modules\"")
 set_target_properties(render_cli PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:render_cli>"
-    VS_DEBUGGER_COMMAND_ARGUMENTS "--config" \"${PROJECT_SOURCE_DIR}/configs/triangle.json\"")
+    VS_DEBUGGER_COMMAND_ARGUMENTS "--config \"${PROJECT_SOURCE_DIR}/configs/triangle.json\"")

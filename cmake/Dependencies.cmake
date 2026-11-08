@@ -1,8 +1,17 @@
 # 重複して呼び出しても 1 回しか実行しない
 include_guard(GLOBAL) 
 
-include(FetchContent)
 find_package(Threads REQUIRED)
+
+# 必要な submodule が取得出来ていないなら，取得方法を示して停止する関数
+function(renderer_require_submodule directory required_file)
+    if(NOT EXISTS "${PROJECT_SOURCE_DIR}/${directory}/${required_file}")
+        message(FATAL_ERROR
+            "Missing submodule: ${directory}."
+            "Run 'git submodule update --init --recursive' in the repository root."
+        )
+    endif()
+endfunction()
 
 # -----------------------
 # OptiX SDK
@@ -48,6 +57,8 @@ message(STATUS "Renderer: OptiX header version=${_renderer_optix_version}")
 # -----------------------
 # cuda-driver-wrapper
 # -----------------------
+renderer_require_submodule(ext/cuda-driver-wrapper CMakeLists.txt)
+
 # 通常はテストしない
 set(CUDA_DRIVER_WRAPPER_BUILD_TESTS OFF CACHE BOOL
     "Build cuda-driver-wrapper tests" FORCE)
@@ -64,6 +75,7 @@ endif()
 # -----------------------
 # fpng
 # -----------------------
+renderer_require_submodule(ext/fpng src/fpng.cpp)
 
 set(_renderer_fpng_source "${PROJECT_SOURCE_DIR}/ext/fpng")
 
@@ -88,3 +100,19 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(rendrer_fpng PRIVATE FPNG_NO_SSE=1)
     endif()
 endif()
+
+# -----------------------
+# nlohmann/json
+# -----------------------
+renderer_require_submodule(ext/json CMakeLists.txt)
+
+set(JSON_BuildTests OFF CACHE BOOL "Build nlohmann/json tests" FORCE)
+set(JSON_Install OFF CACHE BOOL "Install nlohmann/json" FORCE)
+set(JSON_MultipleHeaders OFF CACHE BOOL "Use nlohmann/json's single header" FORCE)
+
+add_subdirectory(
+    "${PROJECT_SOURCE_DIR}/ext/json" 
+    "${CMAKE_CURRENT_BINARY_DIR}/json-build"
+    EXCLUDE_FROM_ALL
+)
+

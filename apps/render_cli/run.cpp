@@ -4,6 +4,7 @@
 #include <renderer/asset_io/png_writer.hpp>
 #include <renderer/image_processing/output_transform.hpp>
 #include <renderer/optix_backend/device_context.hpp>
+#include <renderer/output/output_settings.hpp>
 #include <renderer/output/srgb8_readback.hpp>
 #include <renderer/renderers/triangle.hpp>
 
@@ -26,27 +27,12 @@ namespace
 
 namespace cdw = cuda_driver_wrapper;
 
-image_processing::OutputTransformSettings make_output_settings(
-    const config::OutputSettings& settings)
-{
-    if (settings.format != config::OutputFormat::png
-        || settings.color_encoding != config::ColorEncoding::srgb
-        || settings.tone_mapping != config::ToneMapping::clip)
-    {
-        throw std::invalid_argument("Unsupported output settings");
-    }
-    return {settings.exposure_ev, image_processing::ToneMapping::clip};
-}
-
 void render_triangle(
     const config::RenderConfig& config,
     CUdevice device,
     const std::filesystem::path& triangle_module,
     const std::filesystem::path& output_module)
 {
-    const auto output_settings = make_output_settings(config.output);
-    image_processing::validate_output_transform_settings(output_settings);
-
     // Reverse destruction keeps both GPU consumers and CPU encoding within
     // the lifetimes of their borrowed buffers, modules, streams and contexts.
     cdw::RetainPrimaryContext cuda_context(device);
@@ -88,6 +74,8 @@ int run(
     const config::RenderConfig& config,
     const std::filesystem::path& module_directory)
 {
+    output::validate_output_settings(config.output);
+    
     if (config.renderer.type != config::RendererType::triangle)
     {
         throw std::invalid_argument("Unsupported renderer type");

@@ -26,7 +26,7 @@ std::size_t required_image_bytes(
     // 不正な値でないかどうかをチェック
     // 縦横の幅
     if (width == 0 || height == 0) {
-        return std::invalid_argument("GPU image dimensions must be positive");
+        throw std::invalid_argument("GPU image dimensions must be positive");
     }
 
     // 1 行分に必要な画素数がストライドのバイトサイズに収まっているかどうか
@@ -77,26 +77,12 @@ bool is_overlapped(
     CUdeviceptr first, 
     std::size_t first_size, 
     CUdeviceptr second, 
-    CUdeviceptr second_size, 
+    CUdeviceptr second_size
 ){
     return first < second + second_size && second < first + first_size;
 }
 } // namespace
 
-void validate_output_transform_settings(
-    const OutputTransformSettings& settings
-)
-{
-    if(!std::isfinite(settings.exposure_ev) || settings.exposure_ev < -32.0f || settings.exposure_ev > 32.0f)
-    {
-        throw std::invalid_argument("exposure_ev must be finite and in [-32, 32]");
-    }
-
-    if(settings.tone_mapping != ToneMapping::clip)
-    {
-        throw std::invalid_argument("Unsupported tone mapping operator");
-    }
-}
 
 OutputTransform::OutputTransform(
     CUcontext context,
@@ -115,7 +101,7 @@ void OutputTransform::enqueue(
 {
     // 入力値の検査
     validate_output_transform_settings(settings);
-    if(!stream.is_valid() || stream.context() != this.context())
+    if(!stream.is_valid() || stream.context() != context())
     {
         throw std::invalid_argument("Output transform stream has the wrong context");
     }
@@ -145,8 +131,8 @@ void OutputTransform::enqueue(
     }
 
     //
-    validate_memory(input.memory, this.context(), input_bytes, alignof(RGB32f));
-    validate_memory(output.memory, this.context(), output_bytes, alignof(RGB8));
+    validate_memory(input.memory, context(), input_bytes, alignof(RGB32f));
+    validate_memory(output.memory, context(), output_bytes, alignof(RGB8));
     
     // 
     if(is_overlapped(input.memory.data, input_bytes, output.memory.data, output_bytes))

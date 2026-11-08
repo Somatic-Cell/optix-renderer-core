@@ -38,7 +38,7 @@ public:
         const image_processing::OutputTransformSettings& settings = {}
     );
 
-    // 現在の状態を返す
+    // 呼び戻し処理について，現在の状態を返す
     [[nodiscard]] bool is_ready();
     
     // 現在の処理が未完了なら完了するまで待つ
