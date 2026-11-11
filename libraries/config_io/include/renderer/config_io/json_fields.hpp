@@ -39,6 +39,7 @@ struct JsonValueCodec
         else if constexpr (std::is_integral_v<T>)
         {
             // 浮動小数点を整数型として受け取らない
+            // 符号なし整数
             if(document.is_number_unsigned())
             {
                 const auto number = document.get<nlohmann::json::number_unsigned_t>();
@@ -48,10 +49,11 @@ struct JsonValueCodec
                 }
                 value = static_cast<T>(number);
             }
+            // 符号付き整数
             else if(document.is_number_integer())
             {
                 const auto number = document.get<nlohmann::json::number_integer_t>();
-                if(std::in_range<T>(number))
+                if(!std::in_range<T>(number))
                 {
                     throw std::invalid_argument("integer is outside the destination type's range");
                 }

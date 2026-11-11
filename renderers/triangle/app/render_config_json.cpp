@@ -92,9 +92,11 @@ struct PathCodec
     {
         std::string text;
         io::JsonValueCodec{}.read(document, text);
+        
         std::filesystem::path candidate(std::u8string(text.begin(), text.end()));
+        
         validate(candidate);
-        value = std::string(text.begin(), text.end());
+        value = std::move(candidate);
     }
 
     Json write(const std::filesystem::path& value) const 
@@ -246,10 +248,12 @@ void to_json(Json& document, const DiagnosticsSettings& value)
 // Render Settings
 void from_json(const Json& document, RenderConfig& value)
 {
-    auto candidate = value;
+    RenderConfig candidate{};
+
     io::read_json_fields(document, candidate, config_fields);
     validate_config(candidate);
-    value = candidate;
+
+    value = std::move(candidate);
 }
 
 void to_json(Json& document, const RenderConfig& value)
