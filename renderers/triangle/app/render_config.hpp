@@ -32,7 +32,7 @@ struct DiagnosticsSettings
     bool verify_triangle = false;
 };
 
-struct  RenderConfig
+struct RenderConfig
 {
     DeviceSettings device;
     RendererSettings renderer;
@@ -42,6 +42,11 @@ struct  RenderConfig
 
 [[nodiscard]] RenderConfig load_render_config(
     const std::filesystem::path& path
+);
+
+void save_render_config(
+    const std::filesystem::path& path,
+    const RenderConfig& config
 );
 
 } // namespace renderer::config

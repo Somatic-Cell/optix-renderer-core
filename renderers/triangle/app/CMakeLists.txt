@@ -1,6 +1,7 @@
 add_executable(triangle_cli
     main.cpp
     render_config.cpp
+    render_config_json.cpp
     run.cpp
     triangle_check.cpp
 )
@@ -13,7 +14,7 @@ target_link_libraries(triangle_cli
         renderer::image_processing
         renderer::output
         renderer::asset_io
-        nlohmann_json::nlohmann_json    
+        renderer::config_io    
 )
 
 set_target_properties(triangle_cli PROPERTIES
