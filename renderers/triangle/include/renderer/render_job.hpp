@@ -44,7 +44,7 @@ public:
     void wait();
 
     // CPU 上にある画素群を返す
-    [[nodiscard]] gpu::ConstLinearRGBImageView image() const;
+    [[nodiscard]] gpu::ConstRGB32fImageView image() const;
     [[nodiscard]] const cuda_driver_wrapper::Event& completion_event() const;
 
 private:

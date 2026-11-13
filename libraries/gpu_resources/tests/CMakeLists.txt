@@ -1,0 +1,5 @@
+add_executable(renderer_image_readback_test image_readback_test.cpp)
+renderer_configure_host(renderer_image_readback_test)
+target_link_libraries(renderer_image_readback_test PRIVATE renderer::gpu_resources)
+add_test(NAME gpu_image_readback COMMAND renderer_image_readback_test)
+set_tests_properties(gpu_image_readback PROPERTIES LABELS "gpu;readback" TIMEOUT 120)

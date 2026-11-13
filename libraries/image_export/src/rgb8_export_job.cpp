@@ -1,17 +1,16 @@
-#include <renderer/output/srgb8_readback.hpp>
+#include <renderer/image_export/rgb8_export_job.hpp>
+#include <renderer/gpu/image_readback.hpp>
 #include <renderer/image_processing/output_transform.hpp>
 
 #include <cuda_driver_wrapper/device_buffer.hpp>
 #include <cuda_driver_wrapper/event.hpp>
-#include <cuda_driver_wrapper/pinned_host_buffer.hpp>
 #include <cuda_driver_wrapper/stream.hpp>
 
 #include <cstdio>
-#include <cstring>
 #include <exception>
 #include <stdexcept>
 
-namespace renderer::output
+namespace renderer::image_export
 {
 
 namespace 
@@ -26,27 +25,14 @@ CUcontext checked_context(
 {
     if(!stream.is_valid() || stream.context() != transform.context())
     {
-        throw std::invalid_argument("Readback stream must match output transform context");
+        throw std::invalid_argument("Export stream must match output transform context");
     }
     return transform.context();
 }
 
-std::size_t checked_image_size(
-    std::uint32_t width, 
-    std::uint32_t height
-)
-{
-    if (width == 0 || height == 0)
-    {
-        throw std::invalid_argument("Readback image dimensions must be positive");
-    }
-
-    return cdw::checked_byte_size(cdw::checked_byte_size(width, height), sizeof(RGB8));
-}
-
 } // namespace
 
-struct RGB8Readback::Impl
+struct RGB8ExportJob::Impl
 {
     enum class State {
         idle,           // まだ処理を依頼していない初期状態．readback は 1 回だけ行う
@@ -60,10 +46,10 @@ struct RGB8Readback::Impl
     CUcontext context;
     std::uint32_t width;
     std::uint32_t height;
+    std::size_t row_bytes;
     std::size_t image_bytes;
     cdw::DeviceBuffer device_pixels;
-    cdw::PinnedHostBuffer host_pixels;
-    cdw::Event completed;
+    gpu::RGB8Readback readback;
     State state = State::idle;
     bool pending = false;
 
@@ -77,10 +63,10 @@ struct RGB8Readback::Impl
         context(checked_context(transform, stream)),
         width(width_in),
         height(height_in),
-        image_bytes(checked_image_size(width, height)),
+        row_bytes(checked_row_bytes(width, sizeof(RGB8))),
+        image_bytes(packed_image_bytes(width, height, sizeof(RGB8))),
         device_pixels(context, image_bytes),
-        host_pixels(context, image_bytes),
-        completed(context)
+        readback(stream_in, width_in, height_in)
     {
     }
 
@@ -98,11 +84,11 @@ struct RGB8Readback::Impl
         }
         catch(const std::exception& error)
         {
-            std::fprintf(stderr, "[RGB8 readback cleanup] %s\n", error.what());
+            std::fprintf(stderr, "[RGB8 export cleanup] %s\n", error.what());
         }
         catch(...)
         {
-            std::fputs("[RGB8 readback cleanup] unknown failure\n", stderr);
+            std::fputs("[RGB8 export cleanup] unknown failure\n", stderr);
         }
         
     }
@@ -110,7 +96,7 @@ struct RGB8Readback::Impl
     // GPU での画像の変換と CPU への転送を依頼する
     // 呼び出した CPU スレッドは GPU の完了を待たない
     void submit(
-        gpu::ConstLinearRGBImageView input,     // 呼び戻したい GPU 上の画像
+        gpu::ConstRGB32fImageView input,     // 呼び戻したい GPU 上の画像
         const cdw::Event& producer_completion,  // 描画の完了を記録するイベント 
         const image_processing::OutputTransformSettings& settings
     )
@@ -118,31 +104,31 @@ struct RGB8Readback::Impl
         // 処理の投入は一度だけ行うので，submit が呼ばれた時点で idle になっていないのは不正
         if(state != State::idle)
         {
-            throw std::logic_error("An RGB8 readback request can be submitted only once");
+            throw std::logic_error("An RGB8 export job can be submitted only once");
         }
 
         // 不正な入力を検知
-        state = State::failed;
         if(input.width != width || input.height != height)
         {
-            throw std::invalid_argument("Readback input dimensions do not match");
+            throw std::invalid_argument("Export image dimensions do not match");
         }
 
         if(!producer_completion.is_valid() || producer_completion.context() != context)
         {
-            throw std::invalid_argument("Readback producer event has the wrong context");
+            throw std::invalid_argument("Export producer event has the wrong context");
         }
 
         // 設定が正しいかどうかを判断
         image_processing::validate_output_transform_settings(settings);
         
-        const gpu::SRGBImageView destination{
+        const gpu::RGB8ImageView destination{
             device_pixels.view(),
             width,
             height,
-            cdw::checked_byte_size(width, sizeof(RGB8))
+            row_bytes
         };
 
+        state = State::failed;
         pending = true;
 
         // 画像のレンダリングが終わるまで待つ
@@ -151,16 +137,14 @@ struct RGB8Readback::Impl
 
         // ポストプロセスの処理をストリームに投入
         transform.enqueue(input, destination, stream, settings);
+        
         // 画像の読み戻し処理を投入
-        cdw::copy_device_to_host_async(host_pixels.view(), device_pixels.view(), stream);
-        // 読み戻しまで終わったかどうかを記録するイベントを記録
-        cdw::record_event(completed, stream);
+        readback.submit(destination);
 
         // 依頼の完了
         state = State::submitted;
         
         // ポストプロセス・画像の読み戻し完了まで待たずに抜ける
-        // 完了したかどうかは completed.is_valid() で確認
     }
 
     // 呼び戻し処理について，現在の状態を返す
@@ -173,14 +157,16 @@ struct RGB8Readback::Impl
             return false;
         // 呼び戻し処理は依頼したが失敗した
         case State::failed:
-            throw std::logic_error("RGB8 readback submission failed; no image can be published");
+            throw std::logic_error("Export submission / execution failed");
+
         // 呼び戻し処理が終了した
         case State::complete:
             return true;
+       
         // 呼び戻し処理は依頼した
         case State::submitted:
             // 呼び戻し処理が完了していない
-            if(!cdw::is_event_ready(completed))
+            if(!readback.is_ready())
             {
                 return false;
             }
@@ -200,7 +186,13 @@ struct RGB8Readback::Impl
         // 待っても無意味な状態
         if (state == State::idle || state == State::failed)
         {
-            throw std::logic_error("wait() requires a successfully submitted RGB8 readback");
+            throw std::logic_error("wait() requires a successfully submitted export job");
+        }
+
+        // 既に完了している場合
+        if (state == State::complete)
+        {
+            return;
         }
 
         // 処理を依頼したが呼び戻しが完了していない
@@ -209,7 +201,7 @@ struct RGB8Readback::Impl
             // 処理の完了を待つ
             try
             {
-                cdw::synchronize_event(completed);
+                readback.wait();
             }
             catch(...)
             {
@@ -222,20 +214,9 @@ struct RGB8Readback::Impl
         }
     }
 
-    // 読み戻した CPU メモリを参照するための情報を返す
-    // 処理が未完了の場合は取得できない
-    SRGB8ImageView view()
-    {
-        if(!is_ready())
-        {
-            throw std::logic_error("RGB8 readback is not ready; wait or poll first");
-        }
-
-        return {width, height, host_pixels.bytes()};
-    } 
 };
 
-RGB8Readback::RGB8Readback(
+RGB8ExportJob::RGB8ExportJob(
     const image_processing::OutputTransform& transform,
     const cdw::Stream& stream,
     std::uint32_t width, 
@@ -244,19 +225,26 @@ RGB8Readback::RGB8Readback(
 {
 }
 
-RGB8Readback::~RGB8Readback() noexcept = default;
+RGB8ExportJob::~RGB8ExportJob() noexcept = default;
 
-void RGB8Readback::submit(
-    gpu::ConstLinearRGBImageView input,
-    const cuda_driver_wrapper::Event& producer_completion,
+void RGB8ExportJob::submit(
+    gpu::ConstRGB32fImageView image,
+    const cuda_driver_wrapper::Event& event,
     const image_processing::OutputTransformSettings& settings
 )
 {
-    impl_->submit(input, producer_completion, settings);
+    impl_->submit(image, event, settings);
 }
 
-bool RGB8Readback::is_ready() { return impl_->is_ready(); }
-void RGB8Readback::wait() { impl_->wait(); }
-SRGB8ImageView RGB8Readback::view() { return impl_->view(); }
+bool RGB8ExportJob::is_ready() { return impl_->is_ready(); }
+void RGB8ExportJob::wait() { impl_->wait(); }
+RGB8ImageView RGB8ExportJob::view() 
+{ 
+    if (!impl_->is_ready())
+    {
+        throw std::logic_error("Export image is no ready; wait or poll first");
+    }
+    return impl_->readback.view(); 
+}
 
 } // namespace renderer::output

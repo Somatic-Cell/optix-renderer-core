@@ -1,4 +1,4 @@
-#include <renderer/asset_io/png_writer.hpp>
+#include <renderer/image_io/png_writer.hpp>
 
 #include <fpng.h>
 
@@ -72,7 +72,7 @@ void validate_png_dimensions(std::uint32_t width, std::uint32_t height)
 // fpng を使って PNG ファイルをエンコードし，保存する
 void write_png(
     const std::filesystem::path& path,  // 保存先のパス
-    const SRGB8ImageView image          // エンコードしたい画像
+    const RGB8ImageView image          // エンコードしたい画像
 )
 {
     validate_png_dimensions(image.width, image.height);
@@ -126,9 +126,9 @@ void write_png(
     }
 }
 
-void write_png(const std::filesystem::path& path, const SRGB8Image& image)
+void write_png(const std::filesystem::path& path, const RGB8Image& image)
 {
-    write_png(path, SRGB8ImageView{image.width, image.height, std::as_bytes(std::span(image.pixels))});
+    write_png(path, RGB8ImageView{image.width, image.height, std::as_bytes(std::span(image.pixels))});
 }
 
 

@@ -245,7 +245,7 @@ struct RenderJob::Impl
         }
     }
 
-    gpu::ConstLinearRGBImageView image() const
+    gpu::ConstRGB32fImageView image() const
     {
         if (state != State::submitted && state != State::complete)
         {
@@ -280,7 +280,7 @@ RenderJob::~RenderJob() noexcept = default;
 void RenderJob::submit() { impl_->submit(); }
 bool RenderJob::is_ready() { return impl_->is_ready(); }
 void RenderJob::wait() { impl_->wait(); }
-gpu::ConstLinearRGBImageView RenderJob::image() const { return impl_->image(); }
+gpu::ConstRGB32fImageView RenderJob::image() const { return impl_->image(); }
 const cuda::Event& RenderJob::completion_event() const { return impl_->completion_event(); }
 
 } // namespace renderer::triangle

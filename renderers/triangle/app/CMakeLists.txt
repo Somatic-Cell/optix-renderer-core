@@ -12,8 +12,7 @@ target_link_libraries(triangle_cli
     PRIVATE
         renderer::triangle
         renderer::image_processing
-        renderer::output
-        renderer::asset_io
+        renderer::image_export
         renderer::config_io
 )
 

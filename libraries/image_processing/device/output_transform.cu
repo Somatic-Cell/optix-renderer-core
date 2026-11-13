@@ -1,4 +1,4 @@
-#include <renderer/core/pixel.hpp>
+#include <renderer/image_types/pixel.hpp>
 
 #include <cmath>
 #include <cstdint>
@@ -6,7 +6,7 @@
 namespace 
 {
 
-__device__ std::uint8_t encode_channel(
+__device__ std::uint8_t encode_srgb_channel(
     float linear,
     float exposure_scale,
     float clip_limit
@@ -24,7 +24,7 @@ __device__ std::uint8_t encode_channel(
 
 } // namespace 
 
-extern "C" __global__ void renderer_linear_to_srgb8(
+extern "C" __global__ void renderer_output_transform_srgb8(
     // 読み込み元
     const unsigned char* source,
     std::uint64_t source_stride,
@@ -66,9 +66,9 @@ extern "C" __global__ void renderer_linear_to_srgb8(
     const float clip_limit = 1.0f / exposure_scale;
 
     output_row[x] = {
-        encode_channel(input.r, exposure_scale, clip_limit),
-        encode_channel(input.g, exposure_scale, clip_limit),
-        encode_channel(input.b, exposure_scale, clip_limit)
+        encode_srgb_channel(input.r, exposure_scale, clip_limit),
+        encode_srgb_channel(input.g, exposure_scale, clip_limit),
+        encode_srgb_channel(input.b, exposure_scale, clip_limit)
     };
 
 

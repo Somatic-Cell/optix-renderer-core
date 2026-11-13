@@ -26,8 +26,8 @@ public:
     [[nodiscard]] CUcontext context() const noexcept { return module_.context(); }
 
     void enqueue(
-        gpu::ConstLinearRGBImageView input,
-        gpu::SRGBImageView output,
+        gpu::ConstRGB32fImageView input,
+        gpu::RGB8ImageView output,
         const cuda_driver_wrapper::Stream& stream,
         const OutputTransformSettings& settings = {}
     ) const;

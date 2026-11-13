@@ -1,6 +1,6 @@
 #include "triangle_check.hpp"
 
-#include <renderer/core/pixel.hpp>
+#include <renderer/image_types/pixel.hpp>
 
 #include <cuda_driver_wrapper/device_memory.hpp>
 
@@ -34,8 +34,8 @@ int reference_output_byte(double linear, double exposure_scale)
 } // namespace
 
 void verify_triangle(
-    gpu::ConstLinearRGBImageView image,
-    SRGB8ImageView readback,
+    gpu::ConstRGB32fImageView image,
+    RGB8ImageView readback,
     const image_processing::OutputTransformSettings& settings)
 {
     namespace cdw = cuda_driver_wrapper;

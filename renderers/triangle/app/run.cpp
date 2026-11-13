@@ -1,11 +1,10 @@
 #include "run.hpp"
 #include "triangle_check.hpp"
 
-#include <renderer/asset_io/png_writer.hpp>
 #include <renderer/image_processing/output_transform.hpp>
 #include <renderer/optix_backend/device_context.hpp>
-#include <renderer/output/output_settings.hpp>
-#include <renderer/output/srgb8_readback.hpp>
+#include <renderer/image_export/export_settings.hpp>
+#include <renderer/image_export/rgb8_export_job.hpp>
 #include <renderer/render_job.hpp>
 
 #include <cuda_driver_wrapper/context.hpp>
@@ -44,20 +43,20 @@ void render_triangle(
         optix_context, render_stream, triangle_module,
         {config.renderer.width, config.renderer.height});
     image_processing::OutputTransform transform(cuda_context.handle(), output_module);
-    output::RGB8Readback readback(
+    image_export::RGB8ExportJob export_job(
         transform, output_stream, config.renderer.width, config.renderer.height);
 
     render.submit();
     // The output stream waits on the producer event on the GPU. The CPU does
-    // not wait for rendering before it submits conversion and readback.
-    readback.submit(render.image(), render.completion_event(), config.output.transform);
-    readback.wait();
-    const auto image = readback.view();
+    // not wait for rendering before it submits conversion and export_job.
+    export_job.submit(render.image(), render.completion_event(), config.output.transform);
+    export_job.wait();
+    const auto image = export_job.view();
 
     if (config.diagnostics.verify_triangle)
     {
         // Optional diagnostic: copy only eight linear pixels (96 bytes).
-        // readback.wait() above also guarantees that rendering has completed.
+        // export_job.wait() above also guarantees that rendering has completed.
         verify_triangle(render.image(), image, config.output.transform);
     }
 
@@ -65,7 +64,7 @@ void render_triangle(
     {
         std::filesystem::create_directories(config.output.path.parent_path());
     }
-    asset_io::write_png(config.output.path, image);
+    image_export::write_export_image(config.output, image);
 }
 
 } // namespace
@@ -74,6 +73,9 @@ int run(
     const config::RenderConfig& config,
     const std::filesystem::path& module_directory)
 {
+    image_export::validate_export_request(
+        config.output, config.renderer.width, config.renderer.height);
+
     const auto triangle_module = module_directory / "triangle" / "programs.optixir";
     const auto output_module = module_directory / "image_processing" / "output_transform.fatbin";
     if (!std::filesystem::is_regular_file(triangle_module)
@@ -104,7 +106,7 @@ int run(
     render_triangle(config, device, triangle_module, output_module);
     std::cout << "Saved: " << std::filesystem::absolute(config.output.path)
               << " (" << config.renderer.width << " x " << config.renderer.height
-              << ", RGB8, transfer: sRGB, tone mapping: clip, exposure EV: "
+              << ", RGB8, exposure EV: "
               << config.output.transform.exposure_ev << ")\n";
     return EXIT_SUCCESS;
 }

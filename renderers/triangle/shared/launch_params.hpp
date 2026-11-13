@@ -1,6 +1,6 @@
 #pragma once
 
-#include <renderer/core/pixel.hpp>
+#include <renderer/image_types/pixel.hpp>
 
 #include <optix_types.h>
 

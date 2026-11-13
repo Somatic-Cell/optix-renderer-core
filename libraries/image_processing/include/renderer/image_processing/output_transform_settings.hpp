@@ -10,8 +10,8 @@ enum class ToneMapping {
     clip 
 };
 
-// 色空間
-enum class ColorEncoding {
+// 伝達関数
+enum class TransferFunction {
     sRGB
 };
 
@@ -22,7 +22,7 @@ struct OutputTransformSettings
 {
     float exposure_ev = 0.0f;
     ToneMapping tone_mapping = ToneMapping::clip;
-    ColorEncoding color_encoding = ColorEncoding::sRGB;
+    TransferFunction color_encoding = TransferFunction::sRGB;
 };
 
 inline void validate_exposure_ev(double exposure_ev)
@@ -48,9 +48,9 @@ inline void validate_output_transform_settings(
         throw std::invalid_argument("Unsupported tone mapping operator");
     }
 
-    if(settings.color_encoding != ColorEncoding::sRGB)
+    if(settings.color_encoding != TransferFunction::sRGB)
     {
-        throw std::invalid_argument("Unsupported color encoding");
+        throw std::invalid_argument("Unsupported transfer function");
     }
 }
 

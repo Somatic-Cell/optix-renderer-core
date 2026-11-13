@@ -23,6 +23,7 @@ struct RGB8
 };
 
 // 型チェック
+static_assert(sizeof(float) == 4);
 static_assert(sizeof(RGB32f) == 3 * sizeof(float));
 static_assert(std::is_trivially_copyable_v<RGB32f>);    // 値をバイト列のコピーで扱える
 static_assert(std::is_standard_layout_v<RGB32f>);

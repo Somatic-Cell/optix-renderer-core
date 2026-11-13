@@ -1,6 +1,6 @@
 #pragma once 
 
-#include <renderer/output/output_settings.hpp>
+#include <renderer/image_export/export_settings.hpp>
 
 #include <cstdint>
 #include <filesystem>
@@ -36,7 +36,7 @@ struct RenderConfig
 {
     DeviceSettings device;
     RendererSettings renderer;
-    output::OutputSettings output{.path = "triangle.png"};
+    image_export::ExportSettings output{.path = "triangle.png"};
     DiagnosticsSettings diagnostics;
 };
 

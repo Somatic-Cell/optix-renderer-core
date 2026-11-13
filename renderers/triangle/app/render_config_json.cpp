@@ -1,6 +1,6 @@
 #include "render_config_json.hpp"
 
-#include <renderer/asset_io/png_writer.hpp>
+#include <renderer/image_export/export_settings.hpp>
 #include <renderer/config_io/json_fields.hpp>
 
 #include <array>
@@ -23,13 +23,13 @@ constexpr std::array renderer_types{
     std::pair{std::string_view{"triangle"}, RendererType::triangle}
 };
 constexpr std::array output_formats{
-    std::pair{std::string_view{"png"}, output::OutputFormat::png}
+    std::pair{std::string_view{"png"}, image_export::ImageFileFormat::png}
 };
 constexpr std::array tone_mappings{
     std::pair{std::string_view{"clip"}, image_processing::ToneMapping::clip}
 };
 constexpr std::array color_encodings{
-    std::pair{std::string_view{"srgb"}, image_processing::ColorEncoding::sRGB}
+    std::pair{std::string_view{"srgb"}, image_processing::TransferFunction::sRGB}
 };
 
 struct VersionCodec
@@ -129,24 +129,24 @@ constexpr auto output_fields = [](auto& fields, auto& value)
 {
     fields.field("path", value.path, PathCodec{});
     fields.field("format", value.format, io::JsonEnumCodec{output_formats});
-    fields.field("color_encoding", value.transform.color_encoding, io::JsonEnumCodec{color_encodings});
+    fields.field("color_encoding", value.transform.transfer_function, io::JsonEnumCodec{color_encodings});
     fields.field("tone_mapping", value.transform.tone_mapping, io::JsonEnumCodec{tone_mappings});
     fields.field("exposure_ev", value.transform.exposure_ev, ExposureCodec{});
 };
 
 struct OutputSettingsCodec
 {
-    void read(const Json& document, output::OutputSettings& value) const 
+    void read(const Json& document, image_export::ExportSettings& value) const 
     {
         auto candidate = value;
         io::read_json_fields(document, candidate, output_fields);
-        output::validate_output_settings(candidate);
+        image_export::validate_export_settings(candidate);
         value = std::move(candidate);
     }
 
-    Json write(const output::OutputSettings& value)
+    Json write(const image_export::ExportSettings& value)
     {
-        output::validate_output_settings(value);
+        image_export::validate_export_settings(value);
         return io::write_json_fields(value, output_fields);
     }
 };
@@ -183,11 +183,15 @@ void validate_config(const RenderConfig& value)
 {
     validate_device(value.device);
     validate_renderer(value.renderer);
-    output::validate_output_settings(value.output);
+    image_export::validate_export_settings(value.output);
 
     try
     {
-        asset_io::validate_png_dimensions(value.renderer.width, value.renderer.height);
+        image_export::validate_export_request(
+            value.output,
+            value.renderer.width, 
+            value.renderer.height
+        );
     }
     catch(const std::exception& error)
     {

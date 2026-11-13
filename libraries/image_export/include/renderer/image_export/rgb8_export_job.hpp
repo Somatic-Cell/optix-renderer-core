@@ -1,7 +1,7 @@
 #pragma once 
 
-#include <renderer/core/image.hpp>
 #include <renderer/gpu/image_view.hpp>
+#include <renderer/image_types/image.hpp>
 #include <renderer/image_processing/output_transform_settings.hpp>
 
 #include <cstdint>
@@ -10,31 +10,31 @@
 namespace cuda_driver_wrapper { class Stream; class Event; }
 namespace renderer::image_processing {class OutputTransform; }
 
-namespace renderer::output
+namespace renderer::image_export
 {
 
-class RGB8Readback final
+class RGB8ExportJob final
 {
 public:
-    RGB8Readback(
+    RGB8ExportJob(
         const image_processing::OutputTransform& transform,
         const cuda_driver_wrapper::Stream& stream,
         std::uint32_t width,
         std::uint32_t height 
     );
-    ~RGB8Readback() noexcept;
+    ~RGB8ExportJob() noexcept;
 
     // copy / move の禁止
-    RGB8Readback(const RGB8Readback&) = delete;
-    RGB8Readback& operator=(const RGB8Readback&) = delete;
-    RGB8Readback(const RGB8Readback&&) = delete;
-    RGB8Readback& operator=(RGB8Readback&&) = delete;
+    RGB8ExportJob(const RGB8ExportJob&) = delete;
+    RGB8ExportJob& operator=(const RGB8ExportJob&) = delete;
+    RGB8ExportJob(const RGB8ExportJob&&) = delete;
+    RGB8ExportJob& operator=(RGB8ExportJob&&) = delete;
 
     // 1 回だけよぶ
     // GPU での画像の変換と CPU への転送を依頼する
     // 呼び出した CPU スレッドは GPU の完了を待たない
     void submit(
-        gpu::ConstLinearRGBImageView input,
+        gpu::ConstRGB32fImageView input,
         const cuda_driver_wrapper::Event& producer_completion,
         const image_processing::OutputTransformSettings& settings = {}
     );
@@ -47,7 +47,7 @@ public:
 
     // 読み戻した CPU メモリを参照するための情報を返す
     // 処理が未完了の場合は取得できない
-    [[nodiscard]] SRGB8ImageView view();
+    [[nodiscard]] RGB8ImageView view();
 
 private:
     struct Impl;
@@ -55,4 +55,4 @@ private:
 };
 
 
-}
+} // renderer::image_export
