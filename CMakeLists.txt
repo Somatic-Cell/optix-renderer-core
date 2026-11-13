@@ -49,11 +49,7 @@ include(cmake/ProjectOptions.cmake)
 include(cmake/Dependencies.cmake)
 include(cmake/GpuModules.cmake)
 
-add_subdirectory(src/image_processing)
-add_subdirectory(src/output)
-add_subdirectory(src/asset_io)
-add_subdirectory(src/optix_backend)
-add_subdirectory(libraries/config_io)
+add_subdirectory(libraries)
 add_subdirectory(renderers/triangle)
 
 message(STATUS "Renderer: CUDA architectures=${CMAKE_CUDA_ARCHITECTURES}")

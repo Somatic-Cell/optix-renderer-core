@@ -1,12 +1,16 @@
 # 静的ライブラリ renderer_optix_backend の定義
-add_library(renderer_optix_backend STATIC 
-    error.cpp 
-    device_context.cpp
+add_library(renderer_optix_backend STATIC
+    src/error.cpp
+    src/device_context.cpp
 )
 
 # renderer::optix_backend という別名をつける
 add_library(renderer::optix_backend ALIAS renderer_optix_backend)
 renderer_configure_host(renderer_optix_backend)
+
+target_include_directories(renderer_optix_backend
+    PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
 
 # OptiX のヘッダファイルを参照できるようにする
 target_include_directories(renderer_optix_backend SYSTEM PUBLIC "${OPTIX_INCLUDE_DIR}")

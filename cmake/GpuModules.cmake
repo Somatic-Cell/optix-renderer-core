@@ -10,8 +10,6 @@ function(renderer_configure_gpu_module target)
         CUDA_STANDARD_REQUIRED ON           # C++ 20 を満たせない場合に古いバージョンへフォールバックすることを許さない
         CUDA_EXTENSIONS OFF                 # コンパイラ固有の拡張を要求しない
     )
-    target_include_directories(${target} PRIVATE
-        "${PROJECT_SOURCE_DIR}/include")
 
     # NVCC に渡すオプション
     target_compile_options(

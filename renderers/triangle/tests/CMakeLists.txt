@@ -8,7 +8,7 @@ target_include_directories(triangle_config_io_test
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../app"
 )
 target_link_libraries(triangle_config_io_test
-    PRIVATE renderer::config_io renderer::asset_io
+    PRIVATE renderer::config_io renderer::asset_io renderer::export_settings
 )
 add_test(
     NAME triangle_config_io

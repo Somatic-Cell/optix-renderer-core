@@ -14,7 +14,7 @@ target_link_libraries(triangle_cli
         renderer::image_processing
         renderer::output
         renderer::asset_io
-        renderer::config_io    
+        renderer::config_io
 )
 
 set_target_properties(triangle_cli PROPERTIES

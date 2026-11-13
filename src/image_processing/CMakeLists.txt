@@ -1,8 +1,0 @@
-add_library(renderer_image_processing STATIC output_transform.cpp)
-add_library(renderer::image_processing ALIAS renderer_image_processing)
-renderer_configure_host(renderer_image_processing)
-target_link_libraries(renderer_image_processing PUBLIC
-    cuda_driver_wrapper::cuda_driver_wrapper)
-
-renderer_add_cuda_module(renderer_output_transform_kernel device/output_transform.cu)
-add_dependencies(renderer_image_processing renderer_output_transform_kernel)
