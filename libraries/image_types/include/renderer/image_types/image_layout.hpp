@@ -26,7 +26,7 @@ inline std::size_t checked_row_bytes(
 }
 
 [[nodiscard]]
-std::size_t required_image_bytes(
+inline std::size_t required_image_bytes(
     std::uint32_t width,        // 画像の幅
     std::uint32_t height,       // 画像の高さ
     std::size_t stride_bytes,   // 画像 1 行分のサイズ
@@ -47,7 +47,10 @@ std::size_t required_image_bytes(
     }
 
     // 画像の最後の行から 1 行前までに必要なバイトサイズ
-    const auto prefix = checked_row_bytes(height - 1, stride_bytes);
+    const auto prefix = 
+        (height == 1) 
+        ? std::size_t{0}
+        : checked_row_bytes(height - 1, stride_bytes);
     if(prefix > std::numeric_limits<std::size_t>::max() - row_bytes)
     {
         throw std::length_error("GPU image byte size overflows size_t");

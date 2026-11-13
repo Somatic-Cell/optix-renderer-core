@@ -110,7 +110,6 @@ struct ImageReadbackStorage::Impl
         }
 
         // 不正な入力を検知
-        state = State::failed;
         if(w != width || h != height)
         {
             throw std::invalid_argument("Readback input dimensions do not match");
@@ -123,7 +122,10 @@ struct ImageReadbackStorage::Impl
             throw std::invalid_argument("Readback producer event has the wrong context");
         }
 
+        // 入力の検証終わり
+
         
+        state = State::failed;
         pending = true;
 
         if(producer)
@@ -144,7 +146,7 @@ struct ImageReadbackStorage::Impl
             copy.srcMemoryType = CU_MEMORYTYPE_DEVICE;
             copy.srcDevice = source.data;
             copy.srcPitch = stride;
-            copy.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+            copy.dstMemoryType = CU_MEMORYTYPE_HOST;
             copy.dstHost = host_pixels.view().data;
             copy.dstPitch = row_bytes;
             copy.WidthInBytes = row_bytes;
@@ -181,6 +183,7 @@ struct ImageReadbackStorage::Impl
 
         // 呼び戻し処理は依頼した
         case State::submitted:
+        default:
             try
             {
                 // 呼び戻し処理が完了していない

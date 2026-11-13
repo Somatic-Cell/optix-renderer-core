@@ -69,7 +69,7 @@ public:
         std::uint32_t width,
         std::uint32_t height 
     ) : storage_(stream, width, height, sizeof(Pixel), alignof(Pixel)) {}
-    ~ImageReadback() noexcept;
+    ~ImageReadback() noexcept = default;
 
     // copy / move の禁止
     ImageReadback(const ImageReadback&) = delete;

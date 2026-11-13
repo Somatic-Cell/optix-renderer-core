@@ -24,7 +24,7 @@ __device__ std::uint8_t encode_srgb_channel(
 
 } // namespace 
 
-extern "C" __global__ void renderer_output_transform_srgb8(
+extern "C" __global__ void renderer_output_transform_rgb8(
     // 読み込み元
     const unsigned char* source,
     std::uint64_t source_stride,

@@ -22,4 +22,4 @@ void write_png(
     const RGB8Image& image             // エンコードしたい画像
 );
 
-} //namespace renderer::asset_io
+} //namespace renderer::image_io

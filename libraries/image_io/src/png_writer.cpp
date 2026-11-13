@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace renderer::asset_io
+namespace renderer::image_io
 {
 
 void validate_png_dimensions(std::uint32_t width, std::uint32_t height)

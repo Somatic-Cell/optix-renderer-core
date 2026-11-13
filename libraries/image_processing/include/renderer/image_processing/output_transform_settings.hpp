@@ -22,7 +22,7 @@ struct OutputTransformSettings
 {
     float exposure_ev = 0.0f;
     ToneMapping tone_mapping = ToneMapping::clip;
-    TransferFunction color_encoding = TransferFunction::sRGB;
+    TransferFunction transfer_function = TransferFunction::sRGB;
 };
 
 inline void validate_exposure_ev(double exposure_ev)
@@ -48,7 +48,7 @@ inline void validate_output_transform_settings(
         throw std::invalid_argument("Unsupported tone mapping operator");
     }
 
-    if(settings.color_encoding != TransferFunction::sRGB)
+    if(settings.transfer_function != TransferFunction::sRGB)
     {
         throw std::invalid_argument("Unsupported transfer function");
     }
