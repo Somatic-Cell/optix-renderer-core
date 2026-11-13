@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.27)
 
 project(renderer VERSION 0.1.0 LANGUAGES CXX)
 
+include(CTest)
+option(RENDERER_ENABLE_GPU_TESTS "Register tests that require a CUDA/OptiX GPU" OFF)
+
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "A 64-bit host build is required. Use -A x64 with Visual Studio.")
 endif()
@@ -46,15 +49,8 @@ include(cmake/ProjectOptions.cmake)
 include(cmake/Dependencies.cmake)
 include(cmake/GpuModules.cmake)
 
-add_subdirectory(src/config)
-add_subdirectory(src/image_processing)
-add_subdirectory(src/output)
-add_subdirectory(src/asset_io)
-add_subdirectory(src/optix_backend)
+add_subdirectory(libraries)
 add_subdirectory(renderers/triangle)
-add_subdirectory(apps/render_cli)
-
-set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT render_cli)
 
 message(STATUS "Renderer: CUDA architectures=${CMAKE_CUDA_ARCHITECTURES}")
-message(STATUS "Renderer: binaries=${CMAKE_BINARY_DIR}/bin/<configuration>")
+message(STATUS "Renderer: binaries=${CMAKE_BINARY_DIR}/bin/<configuration>/<application>")

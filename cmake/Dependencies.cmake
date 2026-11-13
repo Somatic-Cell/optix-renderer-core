@@ -69,7 +69,7 @@ add_subdirectory(
 )
 
 if(MSVC)
-    target_compile_definitions(cuda_driver_wrapper PRIVATE /Zc:preprocessor)
+    target_compile_options(cuda_driver_wrapper PRIVATE /Zc:preprocessor)
 endif()
 
 # -----------------------
@@ -92,12 +92,12 @@ target_compile_features(renderer_fpng PRIVATE cxx_std_11)
 set_target_properties(renderer_fpng PROPERTIES CXX_EXTENSIONS OFF)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(rendrer_fpng PRIVATE -fno-strict-aliasing)
+    target_compile_options(renderer_fpng PRIVATE -fno-strict-aliasing)
 
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|i.86|x86)$")
-        target_compile_options(render_fpng PRIVATE -msse4.1 -mpclmul)
+        target_compile_options(renderer_fpng PRIVATE -msse4.1 -mpclmul)
     else()
-        target_compile_options(rendrer_fpng PRIVATE FPNG_NO_SSE=1)
+        target_compile_options(renderer_fpng PRIVATE FPNG_NO_SSE=1)
     endif()
 endif()
 

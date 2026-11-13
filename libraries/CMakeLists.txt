@@ -1,0 +1,7 @@
+add_subdirectory(image_types)
+add_subdirectory(gpu_resources)
+add_subdirectory(optix_backend)
+add_subdirectory(image_processing)
+add_subdirectory(image_io)
+add_subdirectory(image_export)
+add_subdirectory(config_io)

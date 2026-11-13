@@ -1,4 +1,0 @@
-add_library(renderer_config STATIC render_config.cpp)
-add_library(renderer::config ALIAS renderer_config)
-renderer_configure_host(renderer_config)
-target_link_libraries(renderer_config PRIVATE nlohmann_json::nlohmann_json)
