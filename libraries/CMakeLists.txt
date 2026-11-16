@@ -5,3 +5,7 @@ add_subdirectory(image_processing)
 add_subdirectory(image_io)
 add_subdirectory(image_export)
 add_subdirectory(config_io)
+
+if(RENDERER_BUILD_VIEWER)
+    add_subdirectory(viewer)
+endif()

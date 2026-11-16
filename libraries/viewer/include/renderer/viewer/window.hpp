@@ -1,0 +1,53 @@
+#pragma once
+
+#include <memory>
+#include <string>
+
+namespace renderer::viewer
+{
+
+struct WindowOptions
+{
+    std::string title = "Renderer viewer";  // アプリ名
+    // 16:9 HD
+    int width = 1440;
+    int height = 900;
+    bool visible = true;
+    bool vsync = true;
+    bool check_gl_errors = false;
+};
+
+struct GraphicsInfo
+{
+    std::string vendor;
+    std::string renderer;
+    std::string version;
+};
+
+class Window final{
+public:
+    explicit Window(const WindowOptions& options = {});
+    ~Window() noexcept;
+
+    // copy / move の禁止
+    Window(const Window&) = delete;
+    Window& operator=(const Window&) = delete;
+    Window(Window&&) = delete;
+    Window& operator=(Window&&) = delete;
+    
+    [[nodiscard]] bool should_close() const;
+    void request_close();
+
+    // イベントを監視する
+    [[nodiscard]] bool begin_frame();
+    void end_frame();
+
+    void set_vsync(bool enabled);
+    void resize(int width, int height);
+    [[nodiscard]] const GraphicsInfo& graphics_info() const;
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+} // namespace renderer::viewer

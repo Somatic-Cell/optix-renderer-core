@@ -5,6 +5,10 @@ project(renderer VERSION 0.1.0 LANGUAGES CXX)
 include(CTest)
 option(RENDERER_ENABLE_GPU_TESTS "Register tests that require a CUDA/OptiX GPU" OFF)
 
+option(RENDERER_BUILD_VIEWER "Build GLFW/ImGui viewer application" OFF)
+option(RENDERER_ENABLE_VIEWER_TESTS "Register tests requiring a desktop OpenGL context" OFF)
+
+
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "A 64-bit host build is required. Use -A x64 with Visual Studio.")
 endif()
@@ -48,6 +52,10 @@ set(CMAKE_CUDA_RUNTIME_LIBRARY None)
 include(cmake/ProjectOptions.cmake)
 include(cmake/Dependencies.cmake)
 include(cmake/GpuModules.cmake)
+
+if(RENDERER_BUILD_VIEWER)
+    include(cmake/ViewerDependencies.cmake)
+endif()
 
 add_subdirectory(libraries)
 add_subdirectory(renderers/triangle)

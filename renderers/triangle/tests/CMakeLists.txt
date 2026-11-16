@@ -36,3 +36,15 @@ if(RENDERER_ENABLE_GPU_TESTS)
         TIMEOUT 120
     )
 endif()
+
+if(RENDERER_BUILD_VIEWER AND RENDERER_ENABLE_VIEWER_TESTS)
+    add_test(NAME triangle_viewer_smoke 
+        COMMAND triangle_viewer --smoke_test
+    )
+
+    set_tests_properties(triangle_viewer_smoke PROPERTIES
+        LABELS "viewer;opengl"
+        TIMEOUT 30
+        RUN_SERIAL TRUE
+    )
+endif()

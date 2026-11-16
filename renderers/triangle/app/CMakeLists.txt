@@ -38,3 +38,7 @@ target_compile_definitions(triangle_cli
     PRIVATE
         "RENDERER_MODULE_DIRECTORY=\"$<TARGET_FILE_DIR:triangle_cli>/modules\""
 )
+
+if(RENDERER_BUILD_VIEWER)
+    include("${CMAKE_CURRENT_LIST_DIR}/viewer.cmake")
+endif()

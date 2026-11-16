@@ -36,7 +36,7 @@ Pipeline::Pipeline(
         compile_options.numAttributeValues = 2;
         compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
         compile_options.pipelineLaunchParamsVariableName = "params";
-        compile_options.usesPrimitiveTypeFlags = OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE;
+        compile_options.usesPrimitiveTypeFlags = static_cast<unsigned int>(OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE);
 
         OptixModuleCompileOptions module_options{};
         module_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_DEFAULT;
