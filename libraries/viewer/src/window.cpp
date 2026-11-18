@@ -5,6 +5,8 @@
 #include <backends/imgui_impl_opengl3.h>
 #include <GLFW/glfw3.h>
 
+#include "platform/window_theme.hpp"
+
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -65,14 +67,15 @@ struct Window::Impl
     bool renderer_initialized_ = false; // 
     bool frame_active_ = false;         // 
     bool check_gl_errors_ = false;      // OpenGL 周りの初期化が適切に行えたかどうか
-    bool dpi_scale_ = 0.0f;             // 
+    float dpi_scale_ = 0.0f;             // 
     ImGuiStyle base_style_{};
     GraphicsInfo graphics_info_;
+    detail::WindowTheme window_theme_;
 
     explicit Impl(const WindowOptions& options)
     {
         // 入力値の妥当性の検証
-        if(options.width < 0 || options.height < 0 || options.title.empty() || options.title.find('\0') != std::string::npos)
+        if(options.width <= 0 || options.height <= 0 || options.title.empty() || options.title.find('\0') != std::string::npos)
         {
             throw std::invalid_argument("Window title and dimensions must be valid");
         }
@@ -152,6 +155,9 @@ struct Window::Impl
             {
                 throw std::runtime_error(glfw_failure("glfwCraeteWindow"));
             }
+
+            // テーマの設定
+            window_theme_.update(window_);
 
             
             // OpenGL の描画状態，オブジェクトを扱うための実行環境 (コンテキスト) を作成
@@ -395,6 +401,8 @@ bool Window::begin_frame()
     }
 
     impl_->update_dpi();
+    impl_->window_theme_.update(impl_->window_);
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();

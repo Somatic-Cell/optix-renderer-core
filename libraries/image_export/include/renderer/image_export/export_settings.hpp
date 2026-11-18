@@ -21,9 +21,9 @@ struct ExportSettings
     image_processing::OutputTransformSettings transform{};
 };
 
-inline void validate_export_settings(const ExportSettings& settings);
+void validate_export_settings(const ExportSettings& settings);
 
-inline void validate_export_request(
+void validate_export_request(
     const ExportSettings& settings,
     std::uint32_t width,
     std::uint32_t height

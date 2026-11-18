@@ -1,28 +1,10 @@
-#include <renderer/image_types/pixel.hpp>
+#include <cuda_runtime.h>
+#include "output_encoding.cuh"
 
-#include <cmath>
 #include <cstdint>
 
-namespace 
-{
-
-__device__ std::uint8_t encode_srgb_channel(
-    float linear,
-    float exposure_scale,
-    float clip_limit
-)
-{
-    // 範囲外を clamp
-    linear = fminf(fmaxf(linear, 0.0f), clip_limit);
-    linear = fminf(linear * exposure_scale, 1.0f);
-    const float encoded = linear <= 0.0031308f
-        ? 12.92f * linear
-        : 1.055f * powf(linear, 1.0 / 2.4) - 0.055;
-    const float bounded = fminf(fmaxf(encoded, 0.0f), 1.0f);
-    return static_cast<std::uint8_t>(std::roundf(bounded * 255.0f));
-}
-
-} // namespace 
+static_assert(sizeof(uchar4) == 4);
+static_assert(sizeof(cudaSurfaceObject_t) == sizeof(std::uint64_t));
 
 extern "C" __global__ void renderer_output_transform_rgb8(
     // 読み込み元
@@ -65,11 +47,38 @@ extern "C" __global__ void renderer_output_transform_rgb8(
     
     const float clip_limit = 1.0f / exposure_scale;
 
-    output_row[x] = {
-        encode_srgb_channel(input.r, exposure_scale, clip_limit),
-        encode_srgb_channel(input.g, exposure_scale, clip_limit),
-        encode_srgb_channel(input.b, exposure_scale, clip_limit)
-    };
+    output_row[x] = renderer::image_processing::device::encode_rgb8(input_row[x], exposure_scale);
+
+}
 
 
+extern "C" __global__ void renderer_output_transform_rgb8_surface(
+    // 読み込み元
+    const unsigned char* source,
+    std::uint64_t source_stride,
+    // 書き込み先 (CUDA surface object は書き込み先が RGBA で確定)
+    cudaSurfaceObject_t surface,
+    // 画像のサイズ
+    std::uint32_t width,
+    std::uint32_t height,
+    float exposure_scale
+)
+{
+    // どの画素を担当しているかを調べる
+    const std::uint64_t x = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    const std::uint64_t y = static_cast<std::uint64_t>(blockIdx.y) * blockDim.y + threadIdx.y;
+    
+    // 範囲外の画素を担当するスレッドは早期終了
+    if(x >= width || y >= height)
+    {
+        return;
+    }
+
+    const renderer::RGB32f* input_row = reinterpret_cast<const renderer::RGB32f*>(
+        source + y * source_stride
+    );
+
+    const renderer::RGB8 rgb = renderer::image_processing::device::encode_rgb8(input_row[x], exposure_scale); 
+    const uchar4 rgba = make_uchar4(rgb.r, rgb.g, rgb.b, 255);
+    surf2Dwrite(rgba, surface, static_cast<int>(x * sizeof(uchar4)), static_cast<int>(y));
 }

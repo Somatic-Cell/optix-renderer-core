@@ -1,6 +1,7 @@
 #pragma once
 
 #include <renderer/gpu/image_view.hpp>
+#include <renderer/gpu/surface_view.hpp>
 #include <renderer/image_processing/output_transform_settings.hpp>
 
 #include <cuda_driver_wrapper/kernel.hpp>
@@ -31,10 +32,18 @@ public:
         const cuda_driver_wrapper::Stream& stream,
         const OutputTransformSettings& settings = {}
     ) const;
+    
+    void enqueue(
+        gpu::ConstRGB32fImageView input,
+        gpu::RGBA8SurfaceView output,
+        const cuda_driver_wrapper::Stream& stream,
+        const OutputTransformSettings& settings = {}
+    ) const;
 
 private:
     cuda_driver_wrapper::Module module_;
-    cuda_driver_wrapper::Kernel kernel_;
+    cuda_driver_wrapper::Kernel linear_kernel_;
+    cuda_driver_wrapper::Kernel surface_kernel_;
 };
 
 } // namespace renderer::image_processing

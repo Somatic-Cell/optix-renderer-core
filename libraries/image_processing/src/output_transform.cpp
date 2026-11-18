@@ -1,6 +1,4 @@
 #include <renderer/image_processing/output_transform.hpp>
-#include <renderer/image_types/pixel.hpp>
-
 #include <cuda_driver_wrapper/stream.hpp>
 
 #include <array>
@@ -13,12 +11,45 @@ namespace renderer::image_processing
 {
 namespace cdw = cuda_driver_wrapper;
 
+namespace {
+
+    std::size_t validate(
+    gpu::ConstRGB32fImageView input, 
+    CUcontext context,
+    const cdw::Stream& stream, 
+    const OutputTransformSettings& settings
+)
+{
+    validate_output_transform_settings(settings);
+    if(!stream.is_valid() || stream.context() != context)
+    {
+        throw std::invalid_argument("Output transform stream has the wrong context");
+    }
+    return validate_image_view(input, context);
+}
+
+cdw::LaunchConfig launch_for(
+    std::uint32_t width,
+    std::uint32_t height
+)
+{
+    cdw::LaunchConfig launch;
+    launch.block_x = 16;
+    launch.block_y = 16;
+    launch.grid_x = 1 + (width - 1) / launch.block_x;
+    launch.grid_y = 1 + (height - 1) / launch.block_y;
+    return launch;
+}
+
+} // namespace
+
 
 OutputTransform::OutputTransform(
     CUcontext context,
     const std::filesystem::path& module_path
 ) : module_(context, module_path),
-    kernel_(cdw::get_kernel(module_, "renderer_output_transform_rgb8"))   // 関数名
+    linear_kernel_(cdw::get_kernel(module_, "renderer_output_transform_rgb8")), 
+    surface_kernel_(cdw::get_kernel(module_, "renderer_output_transform_rgb8_surface")) 
 {
 }
 
@@ -30,18 +61,13 @@ void OutputTransform::enqueue(
 ) const
 {
     // 入力値の検査
-    validate_output_transform_settings(settings);
-    if(!stream.is_valid() || stream.context() != context())
-    {
-        throw std::invalid_argument("Output transform stream has the wrong context");
-    }
+    const auto input_bytes = validate(input, context(), stream, settings);
 
     if(input.width != output.width || input.height != output.height)
     {
         throw std::invalid_argument("Output transform image dimensions do not match");
     }
 
-    const auto input_bytes = gpu::validate_image_view(input, context());
     const auto output_bytes = gpu::validate_image_view<RGB8>(output, context());
 
     if(
@@ -68,13 +94,54 @@ void OutputTransform::enqueue(
         &exposure_scale
     });
 
-    cdw::LaunchConfig launch;
-    launch.block_x = 16;
-    launch.block_y = 16;
-    launch.grid_x = 1 + (width - 1) / launch.block_x;
-    launch.grid_y = 1 + (height - 1) / launch.block_y;
 
-    cdw::launch_kernel(kernel_, launch, stream, arguments);
+    cdw::launch_kernel(linear_kernel_, launch_for(width, height), stream, arguments);
+
+}
+
+void OutputTransform::enqueue(
+    gpu::ConstRGB32fImageView input,
+    gpu::RGBA8SurfaceView output,
+    const cdw::Stream& stream,
+    const OutputTransformSettings& settings
+) const
+{
+    // 入力値の検査
+    if(
+        output.context != context()
+        || output.surface == 0
+        || input.width != output.width 
+        || input.height != output.height
+    )
+    {
+        throw std::invalid_argument("Invalid output RGBA8 surface view");
+    }
+
+
+    if(
+        output.width > static_cast<std::uint32_t>((std::numeric_limits<int>::max)() / 4)
+        || output.height > static_cast<std::uint32_t>((std::numeric_limits<int>::max)())
+    )
+    {
+        throw std::invalid_argument("Surface dimensions exceed CUDA coordinate range");
+    }
+
+    CUdeviceptr source = input.memory.data;
+    std::uint64_t source_stride = input.row_stride_bytes;
+    CUsurfObject surface = output.surface;
+    std::uint32_t width = input.width;
+    std::uint32_t height = input.height;
+    float exposure_scale = std::exp2(settings.exposure_ev);
+    auto arguments = std::to_array<void*>({
+        &source,
+        &source_stride,
+        &surface,
+        &width,
+        &height,
+        &exposure_scale
+    });
+
+    cdw::launch_kernel(linear_kernel_, launch_for(width, height), stream, arguments);
 
 }
 

@@ -1,0 +1,129 @@
+#include <renderer/task_execution/session_worker.hpp>
+#include <atomic>
+#include <chrono>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <thread>
+
+namespace
+{
+using namespace renderer::task_execution;
+void require(bool value, const char* message)
+{ if (!value) throw std::runtime_error(message); }
+template<class Predicate> void until(Predicate predicate)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!predicate())
+    {
+        if (std::chrono::steady_clock::now() >= deadline) throw std::runtime_error("Worker test timeout");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+struct Counts
+{
+    std::atomic_int made{0}, destroyed{0}, commands{0}, maintenance{0};
+    std::thread::id creator, destroyer;
+};
+struct State
+{
+    std::shared_ptr<Counts> counts;
+    int value = 0;
+    explicit State(std::shared_ptr<Counts> c) : counts(std::move(c))
+    { counts->creator = std::this_thread::get_id(); ++counts->made; }
+    ~State() { counts->destroyer = std::this_thread::get_id(); ++counts->destroyed; }
+};
+using Worker = SessionWorker<State, int>;
+}
+int main()
+{
+    try
+    {
+        auto counts = std::make_shared<Counts>();
+        std::shared_ptr<const int> retained;
+        {
+            Worker worker([counts](const TaskContext& task)
+            { task.report("Initialize once"); return std::make_unique<State>(counts); },
+                [](State& state) { return ++state.counts->maintenance < 4; });
+            until([&] { return worker.snapshot().accepting(); });
+            until([&] { return counts->maintenance >= 4; });
+            for (int i = 1; i <= 10; ++i)
+            {
+                require(worker.try_submit([](State& state, const TaskContext&)
+                    { ++state.counts->commands; return ++state.value; }), "ready worker rejected request");
+                until([&] { return worker.snapshot().phase == WorkerPhase::completed; });
+                auto snapshot = worker.snapshot();
+                require(*snapshot.result == i, "State was not persistent");
+                require(snapshot.generation == static_cast<std::uint64_t>(i), "Wrong generation");
+                retained = snapshot.result;
+            }
+            require(counts->made == 1, "State factory was rerun");
+            std::atomic_bool entered = false;
+            require(worker.try_submit([&](State&, const TaskContext& task)
+            {
+                entered = true;
+                while (!task.stop_requested()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                task.cancellation_point();
+                return 0;
+            }), "cancel task rejected");
+            until([&] { return entered.load(); });
+            require(!worker.try_submit([](State&, const TaskContext&) { return 0; }), "busy request was queued");
+            worker.request_stop();
+            until([&] { return worker.snapshot().phase == WorkerPhase::cancelled; });
+            require(worker.try_submit([](State& state, const TaskContext&) { return ++state.value; }),
+                "cancelled worker could not be reused");
+            until([&] { return worker.snapshot().phase == WorkerPhase::completed; });
+            require(*worker.snapshot().result == 11, "State was lost after cancellation");
+        }
+        require(counts->destroyed == 1 && counts->creator == counts->destroyer,
+            "State teardown did not run on its creating worker");
+        require(counts->creator != std::this_thread::get_id(), "State created on caller");
+        require(retained && *retained == 10, "Result did not survive executor teardown");
+        {
+            Worker worker([](const TaskContext&) -> std::unique_ptr<State>
+            { throw std::runtime_error("expected init error"); });
+            until([&] { return worker.snapshot().phase == WorkerPhase::failed; });
+            require(worker.snapshot().error != nullptr, "Initialization error lost");
+            require(!worker.try_submit([](State&, const TaskContext&) { return 0; }), "Failed factory accepted task");
+        }
+        {
+            Worker worker([](const TaskContext&) { return std::make_unique<State>(std::make_shared<Counts>()); });
+            until([&] { return worker.snapshot().accepting(); });
+            require(worker.try_submit([](State&, const TaskContext&) -> int
+                { throw std::runtime_error("expected operation error"); }), "exception task rejected");
+            until([&] { return worker.snapshot().phase == WorkerPhase::failed; });
+            require(worker.snapshot().error != nullptr, "Operation error lost");
+        }
+        {
+            std::atomic_bool maintenance_entered = false, release = false;
+            Worker worker([](const TaskContext&) { return std::make_unique<State>(std::make_shared<Counts>()); },
+                [&](State&) -> bool
+                {
+                    maintenance_entered = true;
+                    while (!release.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    throw std::runtime_error("expected retirement failure");
+                });
+            until([&] { return maintenance_entered.load(); });
+            const bool accepted = worker.try_submit([](State&, const TaskContext&) { return 1; });
+            release = true;
+            require(accepted, "request concurrent with maintenance was not accepted");
+            until([&] { return worker.snapshot().phase == WorkerPhase::failed; });
+            require(worker.snapshot().error != nullptr, "Maintenance failure was overwritten by queued state");
+        }
+        {
+            std::atomic_bool started = false;
+            auto worker = std::make_unique<Worker>([&](const TaskContext& task)
+            {
+                started = true;
+                while (!task.stop_requested()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                task.cancellation_point();
+                return std::make_unique<State>(std::make_shared<Counts>());
+            });
+            until([&] { return started.load(); });
+            worker.reset(); // requests cooperative cancellation during initialization
+        }
+        std::cout << "Session worker: PASS (persistent state, reuse, backpressure, cancellation, failure, shutdown)\n";
+        return 0;
+    }
+    catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
+}
