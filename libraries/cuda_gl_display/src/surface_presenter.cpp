@@ -284,7 +284,7 @@ struct SurfacePresenter::Impl
         auto& slot = slots_[static_cast<std::size_t>(index)];
         
         // OpenGL が使用中の場合，処理を投入せずに戻る
-        if(available(slot)) return false;
+        if(!available(slot)) return false;
 
         // GPU の処理が終わるまで保持する
         producer_ = std::move(producer);
@@ -540,6 +540,8 @@ SurfacePresenter::SurfacePresenter(
     std::uint32_t width,
     std::uint32_t height
 ) : impl_(std::make_unique<Impl>(context, std::move(lifetime), width, height)) {}
+
+SurfacePresenter::~SurfacePresenter() noexcept = default;
 
 bool SurfacePresenter::try_submit(Producer producer)
 {

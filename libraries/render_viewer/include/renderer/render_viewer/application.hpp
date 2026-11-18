@@ -26,7 +26,7 @@ public:
     virtual ~FrameSource() noexcept = default;
     [[nodiscard]] virtual SourceInfo info() const = 0;
     [[nodiscard]] virtual std::optional<gpu::SubmittedRGB32fImage> try_render() = 0;
-    virtual bool correct() = 0;
+    virtual bool collect() = 0;
 };
 
 struct LaunchEnvironment

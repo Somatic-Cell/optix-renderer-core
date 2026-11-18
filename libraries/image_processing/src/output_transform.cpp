@@ -107,6 +107,8 @@ void OutputTransform::enqueue(
 ) const
 {
     // 入力値の検査
+    static_cast<void>(validate(input, context(), stream, settings));
+    
     if(
         output.context != context()
         || output.surface == 0
@@ -141,7 +143,7 @@ void OutputTransform::enqueue(
         &exposure_scale
     });
 
-    cdw::launch_kernel(linear_kernel_, launch_for(width, height), stream, arguments);
+    cdw::launch_kernel(surface_kernel_, launch_for(width, height), stream, arguments);
 
 }
 

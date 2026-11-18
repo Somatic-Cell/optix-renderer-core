@@ -66,7 +66,7 @@ struct GLFunctions
     using Poll              = GLenum(RENDERER_GL_CALL*)(GLsyncHandle, GLbitfield, std::uint64_t);
     using Delete            = void(RENDERER_GL_CALL*)(GLsyncHandle);
 
-    CreateTextures create_textures  = load<CreateTextures>("glCrateTextures");
+    CreateTextures create_textures  = load<CreateTextures>("glCreateTextures");
     Storage texture_storage         = load<Storage>("glTextureStorage2D");
     Parameter texture_parameter     = load<Parameter>("glTextureParameteri");
     Fence fence                     = load<Fence>("glFenceSync");

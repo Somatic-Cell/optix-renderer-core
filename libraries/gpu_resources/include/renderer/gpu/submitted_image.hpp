@@ -18,15 +18,15 @@ public:
     SubmittedImage(
         ConstImageView<Pixel> image,
         std::shared_ptr<const cuda_driver_wrapper::Event> completion,
-        std::shared_ptr<const void> content_lifetime,
+        std::shared_ptr<const void> conetxt_lifetime,
         std::uint64_t sequence
     ) : 
-    image_(image), content_lifetime_(std::move(content_lifetime)),
+    image_(image), conetxt_lifetime_(std::move(conetxt_lifetime)),
     completion_(std::move(completion)), sequence_(sequence)
     {
         if(
             !completion_ 
-            || !content_lifetime_ 
+            || !conetxt_lifetime_ 
             || !completion_->is_valid()
             || completion_->context() != image.memory.context
         )
@@ -62,14 +62,14 @@ public:
     }
 
     [[nodiscard]]
-    const std::shared_ptr<const void>& content_lifetime() const noexcept
+    const std::shared_ptr<const void>& context_lifetime() const noexcept
     {
-        return content_lifetime_;
+        return conetxt_lifetime_;
     }
 
 private:
     ConstImageView<Pixel> image_;
-    std::shared_ptr<const void> content_lifetime_;
+    std::shared_ptr<const void> conetxt_lifetime_;
 
     std::shared_ptr<const cuda_driver_wrapper::Event> completion_;
     std::uint64_t sequence_;

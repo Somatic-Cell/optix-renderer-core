@@ -5,13 +5,17 @@
 #include <renderer/viewer/window.hpp>
 #include <renderer/viewer/workspace.hpp>
 #include <cuda_driver_wrapper/event.hpp>
+
 #include <imgui.h>
+
 #ifdef RENDERER_VIEWER_TESTS
 #include "ui_smoke.hpp"
 #endif
+
 #ifdef RENDERER_VIEWER_GPU_CHECKS
 #include "verify_surface.hpp"
 #endif
+
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -23,47 +27,77 @@
 
 namespace renderer::render_viewer
 {
+
 namespace
 {
+
 namespace tasks = task_execution;
 namespace cdw = cuda_driver_wrapper;
+
 struct DisplayProgram
 {
+    // 
     std::shared_ptr<const void> context_owner;
+    // 
     image_processing::OutputTransform transform;
+
     DisplayProgram(SourceInfo info, const std::filesystem::path& path)
         : context_owner(std::move(info.context_lifetime)), transform(info.context, path) {}
 };
+
+// 
 struct Backend
 {
     std::unique_ptr<FrameSource> source; // persistent renderer, destroyed on worker
     std::shared_ptr<DisplayProgram> display;
 };
+
+// 1 回のタスクの結果
+// GPU に投入済みの画像生成処理を参照するオブジェクトを返す
 struct Reply
 {
     std::optional<gpu::SubmittedRGB32fImage> image;
     std::shared_ptr<DisplayProgram> display;
 };
+
 using Worker = tasks::SessionWorker<Backend, Reply>;
+
 std::string failure_text(std::exception_ptr error)
 {
-    try { if (error) std::rethrow_exception(error); }
-    catch (const std::exception& e) { return e.what(); }
-    catch (...) { return "Unknown worker failure"; }
+    try 
+    { 
+        if(error){
+            std::rethrow_exception(error);
+        }  
+    }
+    catch (const std::exception& e) 
+    { 
+        return e.what(); 
+    }
+    catch (...) 
+    { 
+        return "Unknown worker failure"; 
+    }
+
     return {};
 }
 
 void gpu_viewer(Application app, const std::filesystem::path& modules, bool smoke)
 {
     if (!app.create_source) throw std::invalid_argument("A frame-source factory is required");
+    
     image_processing::validate_output_transform_settings(app.display);
+    
     viewer::WindowOptions options;
     options.title = app.title;
     options.visible = !smoke;
     options.vsync = !smoke;
     options.check_gl_errors = smoke;
+    
     viewer::Window window(options);
+    
     viewer::Workspace workspace;
+    
     // Reverse teardown: presenter -> image/module leases -> worker -> window.
     std::unique_ptr<Worker> worker;
     tasks::WorkerSnapshot<Reply> snapshot;
@@ -216,7 +250,7 @@ void gpu_viewer(Application app, const std::filesystem::path& modules, bool smok
                 backend->display = std::make_shared<DisplayProgram>(backend->source->info(),
                     environment.module_directory / "image_processing" / "output_transform.fatbin");
                 return backend;
-            }, [](Backend& backend) { return backend.source->correct(); });
+            }, [](Backend& backend) { return backend.source->collect(); });
         }
         if (smoke && error.empty() && presenter && !presenter->pending())
         {
@@ -258,7 +292,8 @@ void gpu_viewer(Application app, const std::filesystem::path& modules, bool smok
     snapshot = {};
     worker.reset();
 }
-}
+} // namespace
+
 int run(Application app, int argc, char** argv)
 {
     try
@@ -299,4 +334,4 @@ int run(Application app, int argc, char** argv)
     catch (const std::exception& error)
     { std::cerr << "viewer: " << error.what() << '\n'; return EXIT_FAILURE; }
 }
-}
+} // namespace renderer::render_viewer
