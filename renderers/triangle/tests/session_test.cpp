@@ -1,10 +1,12 @@
 #include <renderer/render_session.hpp>
+#include <renderer/render_execution/render_execution.hpp>
 #include <cuda_driver_wrapper/device.hpp>
 #include <cuda_driver_wrapper/device_memory.hpp>
 #include <cuda_driver_wrapper/event.hpp>
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -29,6 +31,26 @@ void check_pixel(const renderer::gpu::SubmittedRGB32fImage& frame)
     require(std::isfinite(pixel.r) && std::isfinite(pixel.g) && std::isfinite(pixel.b), "Nonfinite center");
     require(std::abs(pixel.r - (1.0 - green - blue)) < 5e-5
         && std::abs(pixel.g - green) < 5e-5 && std::abs(pixel.b - blue) < 5e-5, "Wrong center pixel");
+}
+
+void check_headless_execution(CUdevice device)
+{
+    using Session = renderer::triangle::RenderSession;
+    renderer::triangle::SessionOptions options;
+    options.frame_slots = 1;
+    options.optix_validation = true;
+    const auto module = std::filesystem::path(RENDERER_MODULE_DIRECTORY) / "triangle" / "programs.optixir";
+    auto image = [&]
+    {
+        renderer::render_execution::RenderExecution<Session> execution(
+            [=](const renderer::task_execution::TaskContext&)
+            { return std::make_unique<Session>(device, module, options); }, 3);
+        // One slot must serve all three launches without any intermediate consumer.
+        return execution.wait_take_result();
+    }();
+    require(image.sequence() == 3, "Headless batch did not submit three renders");
+    cuda_driver_wrapper::synchronize_event(image.completion_event());
+    check_pixel(image);
 }
 }
 int main()
@@ -87,7 +109,8 @@ int main()
         require(retained->is_ready(), "Frame event did not survive session");
         check_pixel(*retained);
         retained.reset();
-        std::cout << "Triangle session: PASS (4 advances, 3 published images, 1 pipeline/GAS, 2 slots)\n";
+        check_headless_execution(cdw::get_device(0));
+        std::cout << "Triangle session: PASS (direct session and autonomous headless batch)\n";
         return 0;
     }
     catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }

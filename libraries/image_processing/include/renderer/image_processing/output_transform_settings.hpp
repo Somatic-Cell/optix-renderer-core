@@ -23,6 +23,8 @@ struct OutputTransformSettings
     float exposure_ev = 0.0f;
     ToneMapping tone_mapping = ToneMapping::clip;
     TransferFunction transfer_function = TransferFunction::sRGB;
+
+    bool operator==(const OutputTransformSettings&) const = default;
 };
 
 inline void validate_exposure_ev(double exposure_ev)

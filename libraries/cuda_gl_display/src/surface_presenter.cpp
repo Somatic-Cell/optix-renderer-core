@@ -20,6 +20,11 @@ namespace cdw = cuda_driver_wrapper;
 namespace
 {
 
+void count_event(std::uint64_t& total) noexcept
+{
+    if(total != (std::numeric_limits<std::uint64_t>::max)()) ++total;
+}
+
 // OpenGL のコンテキストが存在することを確認
 GLFWwindow* require_gl()
 {
@@ -172,7 +177,7 @@ struct SurfacePresenter::Impl
                 gl_.texture_parameter(slot.texture, GL_TEXTURE_WRAP_T, static_cast<GLint>(detail::clamp_to_edge));
                 
                 detail::check_gl("Create presentation texture");
-                ++statistics_.textures;
+                count_event(statistics_.textures);
                 
                 // OpenGL テクスチャを CUDA に登録する
                 // 登録は初期化時に行い，マッピングを画像生成ごとに行う
@@ -185,7 +190,7 @@ struct SurfacePresenter::Impl
                     "cuGraphicsGLRegisterImage"
                 );
 
-                ++statistics_.registrations;
+                count_event(statistics_.registrations);
             }
 
             current.restore();
@@ -267,7 +272,7 @@ struct SurfacePresenter::Impl
         );
         if (!slot.retired) throw std::runtime_error("glFenceSync failed");
         glFlush();
-        ++statistics_.retirement_fences;
+        count_event(statistics_.retirement_fences);
     }
 
     // CUDA へ生成した画像を投入する
@@ -306,7 +311,7 @@ struct SurfacePresenter::Impl
                 "cuGraphicsMapResources"
             );
             slot.mapped = true;
-            ++statistics_.mappings;
+            count_event(statistics_.mappings);
 
             // OpenGL のリソースに対応する CUDA Array を取得
             // マッピングのたびにリソースを取得し直す必要がある
@@ -328,11 +333,11 @@ struct SurfacePresenter::Impl
                 cuSurfObjectCreate(&slot.surface, &descriptor),
                 "cuSurfObjectCreate"
             );
-            ++statistics_.surface_objects;
+            count_event(statistics_.surface_objects);
 
             // アプリケーション側から渡された処理を実行
             producer_({context_, slot.surface, width_, height_}, stream_);
-            ++statistics_.productions;
+            count_event(statistics_.productions);
 
             // イベントを記録
             cdw::record_event(produced_, stream_);
@@ -423,7 +428,7 @@ struct SurfacePresenter::Impl
             producer_ = {};
 
             // 公開の完了を報告
-            ++statistics_.publications;
+            count_event(statistics_.publications);
             return true;
         }
         catch(...)

@@ -6,6 +6,7 @@ add_subdirectory(image_io)
 add_subdirectory(image_export)
 add_subdirectory(config_io)
 add_subdirectory(task_execution)
+add_subdirectory(render_execution)
 
 if(RENDERER_BUILD_VIEWER)
     add_subdirectory(viewer)

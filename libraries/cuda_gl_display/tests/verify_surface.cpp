@@ -20,19 +20,18 @@
 #define RENDERER_GL_CALL
 #endif
 
-namespace renderer::render_viewer::tests
+namespace renderer::cuda_gl_display::tests
 {
-void verify_surface(unsigned int texture, const gpu::SubmittedRGB32fImage& submitted,
+void verify_surface(unsigned int texture, gpu::ConstRGB32fImageView source,
     const image_processing::OutputTransform& transform,
     const image_processing::OutputTransformSettings& settings)
 {
-    const auto source = submitted.image();
     image_processing::validate_output_transform_settings(settings);
     static_cast<void>(gpu::validate_image_view(source, source.memory.context));
     using GetTextureSubImage = void (RENDERER_GL_CALL*)(GLuint, GLint,
         GLint, GLint, GLint, GLsizei, GLsizei, GLsizei, GLenum, GLenum, GLsizei, void*);
     const auto address = glfwGetProcAddress("glGetTextureSubImage");
-    if (!address) throw std::runtime_error("glGetTextureSubImage is required for the V2 test");
+    if (!address) throw std::runtime_error("glGetTextureSubImage is required for the surface test");
     const auto read_texture = reinterpret_cast<GetTextureSubImage>(address);
     using BindBuffer = void (RENDERER_GL_CALL*)(GLenum, GLuint);
     const auto bind_address = glfwGetProcAddress("glBindBuffer");
@@ -81,7 +80,6 @@ void verify_surface(unsigned int texture, const gpu::SubmittedRGB32fImage& submi
     cdw::Event done(source.memory.context, static_cast<unsigned int>(CU_EVENT_DISABLE_TIMING) | static_cast<unsigned int>(CU_EVENT_BLOCKING_SYNC));
     try
     {
-        cdw::stream_wait_event(stream, submitted.completion_event());
         for (std::size_t i = 0; i < points.size(); ++i)
         {
             const auto& point = points[i];

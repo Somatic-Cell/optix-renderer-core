@@ -6,3 +6,7 @@ target_link_libraries(renderer_cuda_gl_display
     PUBLIC renderer::gpu_resources
     PRIVATE glfw OpenGL::GL
 )
+
+if(BUILD_TESTING AND RENDERER_ENABLE_VIEWER_TESTS AND RENDERER_ENABLE_GPU_TESTS)
+    add_subdirectory(tests)
+endif()

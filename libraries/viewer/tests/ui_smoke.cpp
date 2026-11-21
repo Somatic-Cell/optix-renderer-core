@@ -1,14 +1,16 @@
-#include "ui_smoke.hpp"
 #include <renderer/viewer/window.hpp>
 #include <renderer/viewer/workspace.hpp>
 #include <imgui.h>
 #include <chrono>
+#include <cstdlib>
+#include <exception>
 #include <iostream>
 #include <stdexcept>
-namespace renderer::render_viewer::tests
+namespace
 {
 void run_ui_smoke()
 {
+    namespace viewer = renderer::viewer;
     for (int cycle = 0; cycle != 2; ++cycle)
     {
         viewer::WindowOptions options;
@@ -39,4 +41,18 @@ void run_ui_smoke()
     }
     std::cout << "Viewer smoke: PASS (2 contexts, 24 frames)\n";
 }
+}
+
+int main()
+{
+    try
+    {
+        run_ui_smoke();
+        return EXIT_SUCCESS;
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << "Viewer UI smoke: " << error.what() << '\n';
+        return EXIT_FAILURE;
+    }
 }

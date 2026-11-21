@@ -12,6 +12,7 @@
 #include <mutex>        // 複数スレッド間の排他的制御
 #include <optional>
 #include <stdexcept>
+#include <stop_token>
 #include <string>
 #include <thread>       // スレッドの生成，管理
 #include <utility>
@@ -29,22 +30,16 @@ enum class WorkerPhase {
     stopped         // 初期化のキャンセルによって停止した
 };
 
-// ワーカースレッドの状態を，他のスレッドに公開するための構造体
-// Result 型の結果を保持できる
-template<class Result>
-struct WorkerSnapshot
+struct WorkerStatus
 {
     WorkerPhase phase = WorkerPhase::initializing;
-    std::uint64_t generation = 0;
     std::string message = "Preparing session ...";
-    std::shared_ptr<const Result> result;   // result の型によっては巨大になりうるので，スナップショットのたびにコピーするを避ける
     std::exception_ptr error;   // 発生した例外を保持する (あるスレッドで生じた例外を別のスレッドに公開する)
 
     // 新しいタスクを受け付けられる状態かどうか
     [[nodiscard]] bool accepting() const noexcept
     {
         return phase == WorkerPhase::idle
-            || phase == WorkerPhase::completed
             || phase == WorkerPhase::cancelled;
     }
 };
@@ -66,34 +61,37 @@ public:
     using Maintenance = std::function<bool(State&)>;
 
     // スレッドの生成
-    explicit SessionWorker(Factory factory, Maintenance maintenance = {})
-        : factory_(std::move(factory)), maintenance_(std::move(maintenance))
+    explicit SessionWorker(
+        Factory factory, 
+        Maintenance maintenance = {}, 
+        Operation initial = {}
+    )
     {
         // factory が有効であることを確認
-        if (!factory_)
+        if (!factory)
         {
             throw std::invalid_argument("Session factory must not be empty");
         }
 
+        if(initial)
+        {
+            queue(std::move(initial));
+        }
+
         // 新しいスレッドを生成
         worker_ = std::jthread(
-            [this](std::stop_token stop) 
+            [this, create = std::move(factory), maintain = std::move(maintenance)](std::stop_token stop) mutable
             {
-                run(stop); 
+                run(stop, move(create), maintain); 
             }
         );
     }
 
     ~SessionWorker() noexcept
     {
-        // 現在のタスクの停止を Operation に対して依頼
-        request_stop();
-
         // ワーカースレッド全体の停止を run() に対して依頼
         worker_.request_stop();
-
-        // // 待機中のスレッドをすべて起動する
-        // wake_.notify_all();
+        request_stop();
         
         if(worker_.joinable())
         {
@@ -114,37 +112,20 @@ public:
             throw std::invalid_argument("Session operation must not be empty");
         }
 
-        // タスクごとに stop_spoirce を生成する
-        Work work {std::move(operation), std::stop_source{}, {}, 0};
 
         {
             // snapshot_ へのアクセスを保護
             std::lock_guard lock(mutex_);
             
             // これからタスクを受け付けられそうか判定
-            if(!snapshot_.accepting())
+            if(phase_ != WorkerPhase::idle && phase_ != WorkerPhase::cancelled)
             {
                 return false;
             }
 
-            if(snapshot_.generation == (std::numeric_limits<std::uint64_t>::max)())
-            {
-                throw std::overflow_error("Request generation exhausted");
-            }
-            work.generation = ++ snapshot_.generation;
+            queue(std::move(operation));
+            set_phase(WorkerPhase::queued);
 
-            // 前の結果を work に移す
-            work.retired_result = std::move(snapshot_.result);
-            
-            // 新しく作成したタスクの停止状態を，SessionWorker からも参照できるようにする
-            request_stop_ = work.stop;
-            
-            // 共有の状態を更新
-            snapshot_.phase = WorkerPhase::queued;
-            snapshot_.message = "Queued";
-            snapshot_.error = {};
-            
-            pending_.emplace(std::move(work));
         }   // mutex はここを抜けると解放される
 
         // ワーカースレッドの起動
@@ -155,19 +136,56 @@ public:
     // タスクのキャンセルをリクエストする
     void request_stop() noexcept
     {
-        std::stop_source stop;
+        std::stop_source stop(std::nostopstate);
+
         // mutex ではコピーだけを行い，解放してから停止のリクエストを行う (デッドロック防止)
         {
             std::lock_guard lock(mutex_);
-            stop = request_stop_;
+            stop = operation_stop_;
         }
 
         stop.request_stop();
     }
 
-    [[nodiscard]] WorkerSnapshot<Result> snapshot() const{
+    [[nodiscard]] WorkerStatus status() const {
         std::lock_guard lock(mutex_);
-        return snapshot_;
+        return {phase_, progress_.empty() ? default_message(phase_) : progress_, error_};
+    }
+
+    [[nodiscard]] std::optional<Result> try_take_result()
+    {
+        std::lock_guard lock(mutex_);
+        if(error_)
+        {
+            std::rethrow_exception(error_);
+        }
+        if(phase_ != WorkerPhase::completed)
+        {
+            return std::nullopt;
+        }
+
+        return take_locked();
+    }
+
+    [[nodiscard]] Result wait_take_result()
+    {
+        std::unique_lock lock(mutex_);
+        if (phase_ == WorkerPhase::idle || (phase_ == WorkerPhase::initializing && !pending_))
+        {
+            throw std::logic_error("No scheduled session operation");
+        }
+
+        result_ready_.wait(lock, [this]{
+            return phase_ == WorkerPhase::completed || phase_ == WorkerPhase::failed
+                || phase_ == WorkerPhase::cancelled || phase_ == WorkerPhase::stopped;
+        });
+        if(error_) {
+            std::rethrow_exception(error_);
+        }
+        if(phase_ != WorkerPhase::completed){
+            throw TaskCancelled{};
+        }
+        return take_locked();
     }
 private:
     
@@ -176,9 +194,43 @@ private:
     {
         Operation operation;                            // ワーカースレッドで実行する処理
         std::stop_source stop;                          // タスク専用の停止リクエスト
-        std::shared_ptr<const Result> retired_result;   // 以前の結果の寿命を延ばすための所有権
-        std::uint64_t generation;                       // タスクのリクエストの識別番号
     };
+
+    void queue(Operation operation)
+    {
+        std::stop_source source;
+        pending_.emplace(Work{std::move(operation), source.get_token()});
+        operation_stop_ = std::move(source);
+    }
+
+    Result take_locked() noexcept
+    {
+        Result result(std::move(*result_));
+        result_.reset();
+        set_phase(WorkerPhase::idle);
+        return result;
+    }
+
+    static const char* default_message(WorkerPhase phase) noexcept
+    {
+        switch(phase) {
+        case WorkerPhase::initializing: return "Prepareing sessin...";
+        case WorkerPhase::idle:         return "Session only";
+        case WorkerPhase::queued:       return "Queued";
+        case WorkerPhase::running:      return "Running";
+        case WorkerPhase::completed:    return "Submission ready";
+        case WorkerPhase::cancelled:    return "Request cancelled";
+        case WorkerPhase::failed:       return "Session failed";
+        case WorkerPhase::stopped:      return "Session stopped";
+        }
+        return "";
+    }
+
+    void set_phase(WorkerPhase phase) noexcept
+    {
+        phase_ = phase;
+        progress_.clear();
+    }
 
     // TaskContext の生成
     TaskContext context(std::stop_token stop)
@@ -186,70 +238,74 @@ private:
         return TaskContext(stop, [this](std::string message)
         {
             std::lock_guard lock(mutex_);
-            snapshot_.message = std::move(message);
+            progress_= std::move(message);
         });
     }
 
-    // ワーカースレッド内で発生した例外の記録
-    void fail(std::exception_ptr error) noexcept
-    {
-        std::lock_guard lock(mutex_);
-        snapshot_.error = std::move(error);
-        snapshot_.phase = WorkerPhase::failed;
-    }
 
     // Work を実行し，結果を WorkSnapshot に反映する
     void execute(State& state, Work& work) noexcept
     {
-        // これらの情報を，タスクの実行が終わったあとで snapshot_ に移す
-        // タスクの実行中は mutex を保持しない
-        std::shared_ptr<const Result> result;   
-        auto phase = WorkerPhase::completed;
-        std::exception_ptr error;
-
-        // タスクの実行
         try
         {
-            // 古い所有権を解放
-            work.retired_result.reset();
-            const auto task = context(work.stop.get_token());
+            auto task = context(work.stop);
             // 実行前にキャンセルされていないかどうか確認する
             task.cancellation_point();
             // タスクを実行し，結果を格納
-            result = std::make_shared<const Result>(work.operation(state, task));
+            auto result = work.operation(state, task);
+            {
+                std::lock_guard lock(mutex_);
+                result_.emplace(std::move(result));
+                operation_stop_ = std::stop_source(std::nostopstate);
+                set_phase(WorkerPhase::completed);
+            }
         }
+
         // タスクがキャンセルされた場合，エラーとしない (ユーザが意図的に要求する処理のため)
         catch(const TaskCancelled&)
         {
-            phase = WorkerPhase::cancelled;
+            std::lock_guard lock(mutex_);
+            operation_stop_ = std::stop_source(std::nostopstate);
+            set_phase(WorkerPhase::cancelled);
         }
-        // 例外処理
-        catch(...)
-        {
-            phase = WorkerPhase::failed;
-            error = std::current_exception();
-        }
-
-        // 解放
-        work.operation = {};
-        
-        // ロックして snapshot_ に反映
-        std::lock_guard lock(mutex_);
-
-        snapshot_.result = std::move(result);
-        snapshot_.error = std::move(error);
-        snapshot_.phase = phase;
-        snapshot_.message = 
-            phase == WorkerPhase::completed ? "Submission Ready" 
-            : phase == WorkerPhase::cancelled ? "Request cancelled" : "Request failed";
+        result_ready_.notify_all();
 
     }
 
-    void run(std::stop_token stop) noexcept
+    void finish(WorkerPhase phase, std::exception_ptr error = {}) noexcept
+    {
+        std::optional<Work> discarded_work;
+        std::optional<Result> discarded_result;
+        {
+            std::lock_guard lock(mutex_);
+            if (pending_)
+            {
+                discarded_work.emplace(std::move(*pending_));
+            }
+
+            if(result_)
+            {
+                discarded_result.emplace(std::move(*result_));
+            }
+
+            pending_.reset();
+            result_.reset();
+
+            error_ = std::move(error);
+
+            operation_stop_ = std::stop_source(std::nostopstate);
+            set_phase(phase);
+        }
+        result_ready_.notify_all();
+    }
+
+    void run(
+        std::stop_token stop,
+        Factory factory,
+        const Maintenance& maintenance
+    ) noexcept
     {
         std::unique_ptr<State> state;
-        bool failed = false;
-
         try
         {
             state = factory_(context(stop));
@@ -258,96 +314,58 @@ private:
                 throw std::runtime_error("Session factory returned null");
             }
 
-            std::lock_guard lock(mutex_);
-            snapshot_.phase = WorkerPhase::idle;
-            snapshot_.message = "Session ready";
+            {
+                std::lock_guard lock(mutex_);
+                set_phase(pending_ ? WorkerPhase::queued : WorkerPhase::idle);
+            }
+
+            while (!stop.stop_requested())
+            {
+                const bool poll_again = maintenance && maintenance(*state);
+                std::optional<Work> work;
+
+                {
+                    std::unique_lock lock(mutex_);
+                    const auto has_work = [this] { return pending_.has_value(); };
+                    if (poll_again)
+                    {
+                        wake_.wait_for(lock, stop, std::chrono::microseconds(2), has_work);
+                    } 
+                    else
+                    {
+                        wake_.wait(lock, stop, has_work);
+                    }
+
+                    if (stop.stop_requested()) break;
+                    if(!pending_) continue;
+
+                    work.emplace(std::move(*pending_));
+                    pending_.reset();
+                    set_phase(WorkerPhase::running);
+                }
+                execute(*state, *work);
+            }
+            finish(WorkerPhase::stopped);
         }
         catch(const TaskCancelled&)
         {
-            std::lock_guard lock(mutex_);
-            snapshot_.phase = WorkerPhase::stopped;
-            return;
+            finish(WorkerPhase::stopped);
         }
         catch(...)
         {
-            fail(std::current_exception());
-            failed = true;
+            finish(WorkerPhase::failed, std::current_exception());
         }
-
-        factory_ = {};
-
-        while (!stop.stop_requested())
-        {
-            bool poll_again = false;
-            if(state && !failed && maintenance_)
-            {
-                try
-                {
-                    poll_again = maintenance_(*state);
-                }
-                catch(...)
-                {
-                    fail(std::current_exception());
-                    failed = true;
-                }                
-            }
-
-            std::optional<Work> work;
-
-            // ロックをかける
-            {
-                std::unique_lock lock(mutex_);
-                const auto has_work = [&] 
-                {
-                    return pending_.has_value(); 
-                };
-
-                if (poll_again)
-                {
-                    wake_.wait_for(
-                        lock,
-                        stop, 
-                        std::chrono::milliseconds(2), 
-                        has_work
-                    );
-                }
-                else {
-                    wake_.wait(lock, stop, has_work);
-                }
-
-                if(stop.stop_requested()) break;
-
-                if (pending_)
-                {
-                    work.emplace(std::move(*pending_));
-                    pending_.reset();
-
-                    if(!failed)
-                    {
-                        snapshot_.phase = WorkerPhase::running;
-                    }
-                }
-            }
-
-            if(work && state && !failed)
-            {
-                execute(*state, *work);
-                failed = snapshot().phase == WorkerPhase::failed;
-            }
-
-        }
-
-        state.reset();
-        pending_.reset();
     }
 
-    Factory factory_;
-    Maintenance maintenance_;
     mutable std::mutex mutex_;
     std::condition_variable_any wake_;
-    WorkerSnapshot<Result> snapshot_;
+    std::condition_variable result_ready_;
+    WorkerPhase phase_ = WorkerPhase::initializing;
+    std::string progress_;
+    std::exception_ptr error_;
+    std::optional<Result> result_;
     std::optional<Work> pending_;
-    std::stop_source request_stop_;
+    std::stop_source operation_stop_{std::nostopstate};
     std::jthread worker_;
 };
 } // namespace renderer::task_execution

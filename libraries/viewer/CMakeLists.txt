@@ -22,3 +22,7 @@ if(WIN32)
 else()
     target_sources(renderer_viewer PRIVATE src/platform/window_theme_other.cpp)
 endif()
+
+if(BUILD_TESTING AND RENDERER_ENABLE_VIEWER_TESTS)
+    add_subdirectory(tests)
+endif()
