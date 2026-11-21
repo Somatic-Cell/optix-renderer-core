@@ -254,6 +254,7 @@ struct RenderSession::Impl
                     options_.image.width, options_.image.height,
                     checked_row_bytes(options_.image.width, sizeof(RGB32f))};
                 return gpu::SubmittedRGB32fImage(image,
+                    slot.frame,
                     std::shared_ptr<const cdw::Event>(slot.frame, &slot.frame->completed_),
                     cuda_, statistics_.render_launches);
             }
