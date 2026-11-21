@@ -25,7 +25,7 @@ class FrameSource
 public:
     virtual ~FrameSource() noexcept = default;
     [[nodiscard]] virtual SourceInfo info() const = 0;
-    [[nodiscard]] virtual bool try_advance() const = 0;
+    [[nodiscard]] virtual bool try_advance() = 0;
     [[nodiscard]] virtual std::optional<gpu::SubmittedRGB32fImage> take_latest_image() = 0;
     virtual bool collect() = 0;
 };

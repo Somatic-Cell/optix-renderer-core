@@ -38,7 +38,7 @@ struct DisplayProgram
 // GPU に投入済みの画像生成処理を参照するオブジェクトを返す
 struct Reply
 {
-    std::optional<gpu::SubmittedRGB32fImage> image;
+    gpu::SubmittedRGB32fImage image;
     std::shared_ptr<DisplayProgram> display;
 };
 
@@ -49,9 +49,9 @@ struct Backend
     std::shared_ptr<DisplayProgram> display;
 
     bool try_advance() { return source->try_advance(); }
-    bool correct() { return source->correct };
+    bool collect() { return source->collect(); };
 
-    std::optional<Relay> take_latest_image();
+    std::optional<Reply> take_latest_image()
     {
         auto image = source->take_latest_image();
         if(!image)
@@ -89,7 +89,7 @@ viewer::WindowOptions window_options(
     const ViewerOptions& options
 )
 {
-    if (!app.create_source) throw std:invalid_argument("A frame-source factory is required");
+    if (!app.create_source) throw std::invalid_argument("A frame-source factory is required");
     image_processing::validate_output_transform_settings(app.display);
 
     viewer::WindowOptions result;
@@ -125,14 +125,14 @@ struct Viewer::Impl
     viewer::WorkspacePanels panels_;
 
     Impl(Application application, const ViewerOptions& options)
-        :   application_(sdt::move(application)),
+        :   application_(std::move(application)),
             window_(window_options(application_, options)),
             vsync_(options.vsync),
             validation_(options.validation),
             display_settings_(application_.display)
     {
-        panels_.draw_render_view [this] { draw_render_view(); };
-        panels_.draw_inspector [this] { draw_inspector(); };
+        panels_.draw_render_view = [this] { draw_render_view(); };
+        panels_.draw_inspector = [this] { draw_inspector(); };
     }
 
     void fail(std::exception_ptr error)

@@ -30,10 +30,11 @@ struct ViewerStatus
     ViewerPhase phase = ViewerPhase::initializing;
     bool render_requested = false;
     bool submission_pending = false;
+    bool display_pending = false;
     bool display_dirty = false;
     bool has_image = false;
     std::string message;
-    std::exception_err error;
+    std::exception_ptr error;
 };
 
 struct ViewerStatistics

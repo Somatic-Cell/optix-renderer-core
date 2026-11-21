@@ -33,7 +33,9 @@ public:
     }
 
     [[nodiscard]] task_execution::WorkerStatus status() const { return worker_.status(); }
-    [[nodiscard]] OptionalImage wait_take_result() { return worker_.wait_take_result(); }
+    [[nodiscard]] OptionalImage try_take_result() { return worker_.wait_take_result(); }
+    
+    [[nodiscard]] Image wait_take_result() { return worker_.wait_take_result(); }
 
     void request_stop() noexcept {worker_.request_stop(); }
 
@@ -45,7 +47,7 @@ private:
             throw std::invalid_argument("A render request must contain at least one advance");
         }
 
-        return [advances](Session& session, const task_execution::TaskCancelled& task) -> Image
+        return [advances](Session& session, const task_execution::TaskContext& task) -> Image
         {
             task.report("Submitting render work...");
             auto remaining = advances;
@@ -60,7 +62,7 @@ private:
                     std::this_thread::sleep_for(std::chrono::milliseconds(2));
                 }
             }
-            auto image = session.task_latest_image();
+            auto image = session.take_latest_image();
             if(!image)
             {
                 throw std::logic_error("Render request completed without an image");

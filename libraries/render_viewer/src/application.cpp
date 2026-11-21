@@ -24,7 +24,7 @@ int run(Application app, int argc, char** argv)
                 std::cout << "Usage: viewer [--modules DIRECTORY]\n";
                 return EXIT_SUCCESS;
             }
-            else if (option == "--modules" && i + 1 < argc) modules = argv[++i];
+            else if (option == "--modules" && i + 1 < argc) app.module_directory = argv[++i];
             else throw std::invalid_argument("Unknown or incomplete option; use --help");
         }
 

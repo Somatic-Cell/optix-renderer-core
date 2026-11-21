@@ -193,7 +193,7 @@ private:
     struct Work
     {
         Operation operation;                            // ワーカースレッドで実行する処理
-        std::stop_source stop;                          // タスク専用の停止リクエスト
+        std::stop_token stop;                           // タスク専用の停止リクエスト
     };
 
     void queue(Operation operation)
@@ -244,7 +244,7 @@ private:
 
 
     // Work を実行し，結果を WorkSnapshot に反映する
-    void execute(State& state, Work& work) noexcept
+    void execute(State& state, Work& work)
     {
         try
         {
@@ -308,7 +308,7 @@ private:
         std::unique_ptr<State> state;
         try
         {
-            state = factory_(context(stop));
+            state = factory(context(stop));
             if(!state)
             {
                 throw std::runtime_error("Session factory returned null");
