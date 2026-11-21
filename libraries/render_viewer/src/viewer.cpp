@@ -149,6 +149,12 @@ struct Viewer::Impl
     {
         panels_.draw_render_view = [this] { draw_render_view(); };
         panels_.draw_inspector = [this] { draw_inspector(); };
+        panels_.draw_file_menu = [this]
+        {
+            const bool can_save = presented_.has_value() && !error_ && !snapshot_writer_.busy();
+            if (ImGui::MenuItem("Save Snapshot...", nullptr, false, can_save))
+                snapshot_panel_.request_open();
+        };
     }
 
     void fail(std::exception_ptr error)
@@ -376,17 +382,6 @@ struct Viewer::Impl
             set_display_settings(settings);
         ImGui::TextWrapped("Exposure only updates the display surface. Resizing the UI does not render or rebuild the scene.");
         if (error_) ImGui::TextWrapped("%s", error_message_.c_str());
-        try
-        {
-            if (auto path = snapshot_panel_.draw(presented_.has_value() && !error_ && !snapshot_writer_.busy(),
-                    snapshot_status_))
-                static_cast<void>(try_save_snapshot(std::move(*path)));
-        }
-        catch (...)
-        {
-            snapshot_status_.path.clear();
-            snapshot_failed(std::current_exception());
-        }
         if (application_.draw_inspector) { ImGui::Separator(); application_.draw_inspector(); }
     }
 
@@ -406,8 +401,22 @@ struct Viewer::Impl
 
         if (!window_.begin_frame()) return !window_.should_close();
         const auto current = status();
-        const bool busy = current.phase != ViewerPhase::idle && current.phase != ViewerPhase::failed;
-        if (workspace_.draw(panels_, {current.message, busy})) window_.request_close();
+        const bool saving = snapshot_status_.phase == SnapshotPhase::saving;
+        const bool busy = saving || (current.phase != ViewerPhase::idle && current.phase != ViewerPhase::failed);
+        const std::string& message = !error_ && snapshot_status_.phase != SnapshotPhase::idle
+            ? snapshot_status_.message : current.message;
+        if (workspace_.draw(panels_, {message, busy})) window_.request_close();
+        try
+        {
+            if (auto path = snapshot_panel_.draw(
+                    presented_.has_value() && !error_ && !snapshot_writer_.busy()))
+                static_cast<void>(try_save_snapshot(std::move(*path)));
+        }
+        catch (...)
+        {
+            snapshot_status_.path.clear();
+            snapshot_failed(std::current_exception());
+        }
         window_.end_frame();
 
         if (!error_ && !window_.should_close())

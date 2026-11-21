@@ -72,6 +72,11 @@ bool Workspace::draw(
     {
         if(ImGui::BeginMenu("File"))
         {
+            if (panels.draw_file_menu)
+            {
+                panels.draw_file_menu();
+                ImGui::Separator();
+            }
             close_required = ImGui::MenuItem("Exit");
             ImGui::EndMenu();
         }
@@ -115,7 +120,7 @@ bool Workspace::draw(
     }
     // Activity パネルの描画
     {
-        const WindowScope panel(render_view_name);
+        const WindowScope panel(activity_name);
         if (panel.visible())
         {
             ImGui::TextUnformatted(activity.message.c_str());

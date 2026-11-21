@@ -35,16 +35,28 @@ std::filesystem::path automatic_name()
 }
 } // namespace
 
-std::optional<std::filesystem::path> SnapshotPanel::draw(bool can_save, const SnapshotStatus& status)
+std::optional<std::filesystem::path> SnapshotPanel::draw(bool can_save)
 {
-    ImGui::Separator();
-    ImGui::TextUnformatted("Save snapshot (PNG)");
+    if(open_requested_)
+    {
+        ImGui::OpenPopup("Save snapshot...");
+        open_requested_ = false;    
+    }
+
+    if(!ImGui::BeginPopupModal("Save snapshot...", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        return std::nullopt;
+    }
+
     ImGui::InputText("Folder", folder_, sizeof(folder_));
     ImGui::InputTextWithHint("Filename", "Automatic if empty", filename_, sizeof(filename_));
     ImGui::BeginDisabled(!can_save);
-    const bool clicked = ImGui::Button("Save Snapshot");
+    const bool clicked = ImGui::Button("Save");
     ImGui::EndDisabled();
-    if (!status.message.empty()) ImGui::TextWrapped("%s", status.message.c_str());
+    ImGui::SameLine();
+    const bool cancelled = ImGui::Button("Cancel");
+    if(clicked || cancelled) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
     if (!clicked) return std::nullopt;
 
     if (folder_[0] == '\0') throw std::invalid_argument("Enter an output folder");

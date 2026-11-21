@@ -16,6 +16,7 @@ struct WorkspacePanels
 {
     std::function<void()>draw_render_view;
     std::function<void()>draw_inspector;
+    std::function<void()>draw_file_menu;
 };
 
 class Workspace final
