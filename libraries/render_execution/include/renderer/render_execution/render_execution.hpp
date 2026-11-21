@@ -33,7 +33,7 @@ public:
     }
 
     [[nodiscard]] task_execution::WorkerStatus status() const { return worker_.status(); }
-    [[nodiscard]] OptionalImage try_take_result() { return worker_.wait_take_result(); }
+    [[nodiscard]] OptionalImage try_take_result() { return worker_.try_take_result(); }
     
     [[nodiscard]] Image wait_take_result() { return worker_.wait_take_result(); }
 
