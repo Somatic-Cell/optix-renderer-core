@@ -45,26 +45,39 @@ int main()
             options.optix_validation = true;
             renderer::triangle::RenderSession session(cdw::get_device(0),
                 std::filesystem::path(RENDERER_MODULE_DIRECTORY) / "triangle" / "programs.optixir", options);
-            auto first = session.try_render(), second = session.try_render();
-            require(first.has_value() && second.has_value(), "Initial slots unavailable");
+            require(!session.take_latest_image(), "Published an image before any launch");
+            require(session.try_advance(), "First advance was rejected");
+            require(session.try_advance(), "Advancing required taking the previous image");
+            auto first = session.take_latest_image();
+            require(first && first->sequence() == 2, "Did not publish the newest submission");
+            require(!session.take_latest_image(), "Published the same submission twice");
+            require(session.statistics().render_launches == 2, "Taking an image launched work");
+            // Both launches use the same stream. Waiting on the newer Event
+            // makes the other slot available regardless of GPU timing.
             cdw::synchronize_event(first->completion_event());
+            require(session.try_advance(), "Could not advance with a free slot");
+            auto second = session.take_latest_image();
+            require(second && second->sequence() == 3, "Third submission missing");
             cdw::synchronize_event(second->completion_event());
             check_pixel(*first); check_pixel(*second);
-            require(!session.try_render(), "Leased slot was overwritten");
+            require(!session.try_advance(), "Leased slot was overwritten");
+            require(!session.take_latest_image(), "A rejected advance produced an image");
             const auto old_address = first->image().memory.data;
             auto consumer_lease = first;
             first.reset();
-            require(!session.try_render(), "Secondary consumer lease was ignored");
+            require(!session.try_advance(), "Secondary consumer lease was ignored");
             consumer_lease.reset();
-            auto third = session.try_render();
-            require(third.has_value() && third->image().memory.data == old_address, "Slot not reused");
+            require(session.try_advance(), "Retry failed after releasing a slot");
+            auto third = session.take_latest_image();
+            require(third && third->sequence() == 4, "Retry produced the wrong submission");
+            require(third->image().memory.data == old_address, "Released slot not reused");
             cdw::synchronize_event(third->completion_event());
             check_pixel(*third);
             const auto counters = session.statistics();
             require(counters.pipeline_builds == 1 && counters.gas_builds == 1
                 && counters.geometry_uploads == 1 && counters.sbt_uploads == 1
                 && counters.parameter_uploads == 2 && counters.frame_allocations == 2
-                && counters.render_launches == 3 && counters.diagnostic_clears == 0,
+                && counters.render_launches == 4 && counters.diagnostic_clears == 0,
                 "Repeated render rebuilt/reallocated/reuploaded/cleared resources");
             session.wait_idle();
             require(!session.collect(), "Completed setup staging was not retired");
@@ -74,7 +87,7 @@ int main()
         require(retained->is_ready(), "Frame event did not survive session");
         check_pixel(*retained);
         retained.reset();
-        std::cout << "Triangle session: PASS (3 launches, 1 pipeline/GAS, 2 slots, no per-frame uploads/clears)\n";
+        std::cout << "Triangle session: PASS (4 advances, 3 published images, 1 pipeline/GAS, 2 slots)\n";
         return 0;
     }
     catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }

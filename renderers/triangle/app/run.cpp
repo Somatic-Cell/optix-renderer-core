@@ -29,8 +29,9 @@ void render_triangle(const config::RenderConfig& config, CUdevice device,
     triangle::RenderSession session(device, triangle_module, options);
     cdw::Stream output_stream(session.context());
     image_processing::OutputTransform transform(session.context(), output_module);
-    auto frame = session.try_render();
-    if (!frame) throw std::logic_error("First render has no free slot");
+    if (!session.try_advance()) throw std::logic_error("First render has no free slot");
+    auto frame = session.take_latest_image();
+    if (!frame) throw std::logic_error("Submitted triangle render has no image");
     image_export::RGB8ExportJob export_job(transform, output_stream,
         config.renderer.width, config.renderer.height);
     export_job.submit(frame->image(), frame->completion_event(), config.output.transform);

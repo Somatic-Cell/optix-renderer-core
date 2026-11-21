@@ -47,9 +47,14 @@ public:
     RenderSession(RenderSession&&) = delete;
     RenderSession& operator=(RenderSession&&) = delete;
 
-    // nullopt = all slots are leased or still executing. No sample/request is
-    // silently discarded; the caller retains and retries its pending request.
-    [[nodiscard]] std::optional<gpu::SubmittedRGB32fImage> try_render();
+    // true: 1 回の描画を投入した（GPU 完了ではない）．
+    // false: 空きスロットがなく未投入．未取得の画像もそのまま残る．
+    [[nodiscard]] bool try_advance();
+
+    // 最新の未取得画像を 1 回だけ返す．描画の投入や GPU の完了待ちは行わない．
+    // 取得前に複数回の投入が成功した場合，最後の画像だけを取得できる．
+    // セッションを操作する同じ CPU 所有者が取得し，利用者へハンドルを渡す．
+    [[nodiscard]] std::optional<gpu::SubmittedRGB32fImage> take_latest_image();
     // Nonblocking setup-retirement poll; true = call again later. The execution
     // owner releases initialization-only pinned memory/scratch, never the UI.
     bool collect();

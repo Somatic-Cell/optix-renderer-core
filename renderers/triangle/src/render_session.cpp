@@ -16,6 +16,7 @@
 #include <optix_stubs.h>
 #include <vector_types.h>
 #include <array>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <limits>
@@ -88,6 +89,7 @@ struct RenderSession::Impl
     cdw::PinnedHostBuffer sbt_upload_;
     cdw::Event initialized_;
     std::vector<Slot> slots_;
+    std::optional<std::size_t> unpublished_slot_; // セッション所有者だけが操作する
     OptixShaderBindingTable sbt_{};
     SessionStatistics statistics_{};
     const cdw::Event* last_completion_ = nullptr;
@@ -221,14 +223,15 @@ struct RenderSession::Impl
         setup_retired_ = true;
         return false;
     }
-    std::optional<gpu::SubmittedRGB32fImage> try_render()
+    bool try_advance()
     {
         if (poisoned_) throw std::logic_error("RenderSession failed; reconstruct it before use");
         if (statistics_.render_launches == (std::numeric_limits<std::uint64_t>::max)())
             throw std::overflow_error("Render sequence exhausted");
         static_cast<void>(collect());
-        for (auto& slot : slots_)
+        for (std::size_t index = 0; index < slots_.size(); ++index)
         {
+            auto& slot = slots_[index];
             if (slot.frame.use_count() != 1) continue; // held by ANY consumer
             if (slot.frame->recorded_ && !cdw::is_event_ready(slot.frame->completed_)) continue;
             try
@@ -250,17 +253,27 @@ struct RenderSession::Impl
                 last_completion_ = &slot.frame->completed_;
                 current.restore();
                 ++statistics_.render_launches;
-                const gpu::ConstRGB32fImageView image{std::as_const(slot.frame->pixels_).view(),
-                    options_.image.width, options_.image.height,
-                    checked_row_bytes(options_.image.width, sizeof(RGB32f))};
-                return gpu::SubmittedRGB32fImage(image,
-                    slot.frame,
-                    std::shared_ptr<const cdw::Event>(slot.frame, &slot.frame->completed_),
-                    cuda_, statistics_.render_launches);
+                unpublished_slot_ = index;
+                return true;
             }
             catch (...) { poisoned_ = true; throw; }
         }
-        return std::nullopt;
+        return false;
+    }
+    std::optional<gpu::SubmittedRGB32fImage> take_latest_image()
+    {
+        if (poisoned_) throw std::logic_error("RenderSession failed; reconstruct it before use");
+        if (!unpublished_slot_) return std::nullopt;
+
+        const auto& frame = slots_[*unpublished_slot_].frame;
+        const gpu::ConstRGB32fImageView image{std::as_const(frame->pixels_).view(),
+            options_.image.width, options_.image.height,
+            checked_row_bytes(options_.image.width, sizeof(RGB32f))};
+        std::optional<gpu::SubmittedRGB32fImage> result(std::in_place, image, frame,
+            std::shared_ptr<const cdw::Event>(frame, &frame->completed_),
+            cuda_, statistics_.render_launches);
+        unpublished_slot_.reset(); // ハンドルの構築に成功してから消費する
+        return result;
     }
 };
 
@@ -268,7 +281,9 @@ RenderSession::RenderSession(CUdevice device, const std::filesystem::path& modul
     const SessionOptions& options, Report report)
     : impl_(std::make_unique<Impl>(device, module, options, report)) {}
 RenderSession::~RenderSession() noexcept = default;
-std::optional<gpu::SubmittedRGB32fImage> RenderSession::try_render() { return impl_->try_render(); }
+bool RenderSession::try_advance() { return impl_->try_advance(); }
+std::optional<gpu::SubmittedRGB32fImage> RenderSession::take_latest_image()
+{ return impl_->take_latest_image(); }
 bool RenderSession::collect() { return impl_->collect(); }
 void RenderSession::wait_idle() { impl_->wait_idle(); static_cast<void>(impl_->collect()); }
 CUcontext RenderSession::context() const noexcept { return impl_->cuda_->handle(); }

@@ -1,6 +1,7 @@
 #include <renderer/render_session.hpp>
 #include <renderer/render_viewer/application.hpp>
 #include <memory>
+#include <stdexcept>
 #include <utility>
 #ifndef RENDERER_MODULE_DIRECTORY
 #error RENDERER_MODULE_DIRECTORY must point to staged GPU modules
@@ -24,7 +25,12 @@ public:
         return {session_.context(), session_.context_lifetime(), image.width, image.height};
     }
     std::optional<renderer::gpu::SubmittedRGB32fImage> try_render() override
-    { return session_.try_render(); }
+    {
+        if (!session_.try_advance()) return std::nullopt;
+        auto frame = session_.take_latest_image();
+        if (!frame) throw std::logic_error("Submitted triangle render has no image");
+        return frame;
+    }
     bool collect() override { return session_.collect(); }
 private:
     static renderer::triangle::SessionOptions options(bool validation)
