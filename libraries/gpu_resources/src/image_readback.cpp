@@ -66,7 +66,8 @@ struct ImageReadbackStorage::Impl
         row_bytes(checked_row_bytes(width, element_size)),
         image_bytes(packed_image_bytes(width, height, element_size)),
         host_pixels(context, image_bytes),
-        completed(context) 
+        completed(context, static_cast<unsigned int>(CU_EVENT_BLOCKING_SYNC)
+            | static_cast<unsigned int>(CU_EVENT_DISABLE_TIMING)) 
     {
     }
 

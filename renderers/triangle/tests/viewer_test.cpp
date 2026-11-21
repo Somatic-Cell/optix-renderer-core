@@ -4,19 +4,26 @@
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <fpng.h>
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
+#include <vector>
 
 #ifndef RENDERER_MODULE_DIRECTORY
 #error RENDERER_MODULE_DIRECTORY must point to staged GPU modules
@@ -125,7 +132,14 @@ GLuint drawn_triangle_texture()
     return static_cast<GLuint>(image);
 }
 
-void verify_drawn_triangle(double exposure_ev)
+using RGB = std::array<std::uint8_t, 3>;
+struct DisplaySamples
+{
+    int width, height;
+    RGB background, interior;
+};
+
+DisplaySamples verify_drawn_triangle(double exposure_ev)
 {
     using Level = void (APIENTRY*)(GLuint, GLint, GLenum, GLint*);
     using Read = void (APIENTRY*)(GLuint, GLint, GLint, GLint, GLint, GLsizei, GLsizei, GLsizei,
@@ -160,17 +174,63 @@ void verify_drawn_triangle(double exposure_ev)
             if (std::abs(static_cast<int>(rgba[c]) - static_cast<int>(std::lround(255 * e))) > 1)
                 throw std::runtime_error("Displayed triangle texel disagrees with expected exposure/color");
         }
+        return RGB{rgba[0], rgba[1], rgba[2]};
     };
-    check(0, 0, {0.02, 0.03, 0.05}); // miss background of this renderer
+    const auto background = check(0, 0, {0.02, 0.03, 0.05}); // miss background of this renderer
     const int x = w / 2, y = h / 3;  // strictly inside; sensitive to vertical flips
     const double px = (2.0 * (x + 0.5) / w - 1.0) * w / h;
     const double py = 1.0 - 2.0 * (y + 0.5) / h;
     const double blue = (py + 0.65) / 1.4;
     const double green = 0.5 * (1.0 - blue) + px / 1.5;
-    check(x, y, {1.0 - green - blue, green, blue});
+    return {w, h, background, check(x, y, {1.0 - green - blue, green, blue})};
 }
 
-void run_viewer_test()
+// The reserved directory belongs only to this test, even in concurrent runs.
+class TestDirectory
+{
+public:
+    TestDirectory()
+    {
+        const auto prefix = "triangle-snapshot-test-" + std::to_string(Clock::now().time_since_epoch().count());
+        for (unsigned n = 0; n < 100; ++n)
+        {
+            auto candidate = std::filesystem::temp_directory_path() / (prefix + "-" + std::to_string(n));
+            if (std::filesystem::create_directory(candidate)) { path = std::move(candidate); return; }
+        }
+        throw std::runtime_error("Could not reserve snapshot test directory");
+    }
+    ~TestDirectory()
+    {
+        std::error_code ignored;
+        std::filesystem::remove_all(path, ignored);
+    }
+    TestDirectory(const TestDirectory&) = delete;
+    TestDirectory& operator=(const TestDirectory&) = delete;
+    std::filesystem::path path;
+};
+
+void verify_saved_png(const std::filesystem::path& path, const DisplaySamples& expected)
+{
+    std::ifstream input(path, std::ios::binary);
+    if (!input) throw std::runtime_error("Snapshot file missing");
+    const std::vector<std::uint8_t> encoded{std::istreambuf_iterator<char>(input), {}};
+    std::vector<std::uint8_t> rgb;
+    std::uint32_t w = 0, h = 0, channels = 0;
+    if (encoded.empty() || encoded.size() > UINT32_MAX ||
+        fpng::fpng_decode_memory(encoded.data(), static_cast<std::uint32_t>(encoded.size()),
+            rgb, w, h, channels, 3) != fpng::FPNG_DECODE_SUCCESS ||
+        w != static_cast<std::uint32_t>(expected.width) || h != static_cast<std::uint32_t>(expected.height) ||
+        channels != 3 || rgb.size() != static_cast<std::size_t>(w) * h * 3)
+        throw std::runtime_error("Snapshot is not a valid full-size RGB PNG");
+    const auto at = [&](std::uint32_t x, std::uint32_t y) {
+        const auto i = (static_cast<std::size_t>(y) * w + x) * 3;
+        return RGB{rgb[i], rgb[i + 1], rgb[i + 2]};
+    };
+    if (at(0, 0) != expected.background || at(w / 2, h / 3) != expected.interior)
+        throw std::runtime_error("Saved PNG does not match the presented texture at acceptance");
+}
+
+DisplaySamples run_viewer_test(const std::filesystem::path& directory)
 {
     auto application = renderer::triangle::make_viewer_application(RENDERER_MODULE_DIRECTORY);
     rv::ViewerOptions options;
@@ -181,6 +241,11 @@ void run_viewer_test()
     const auto started = Clock::now();
     auto stage_started = started;
     rv::Viewer viewer(std::move(application), options);
+    const auto first_path = directory / "at-click.png";
+    if (viewer.try_save_snapshot(first_path))
+        throw std::runtime_error("Accepted a snapshot before presenting an image");
+    DisplaySamples samples{}, at_click{};
+    bool verified_file = false;
     Stage stage = Stage::first_image;
     unsigned int idle_updates = 0;
     constexpr unsigned int required_idle_updates = 8;
@@ -221,7 +286,7 @@ void run_viewer_test()
             fail("Published image has unexpected rendering state", stage, status, counts);
 
         if (stage != Stage::idle)
-            verify_drawn_triangle(stage == Stage::exposure_update ? 0.5 : 0.0);
+            samples = verify_drawn_triangle(stage == Stage::exposure_update ? 0.5 : 0.0);
 
         switch (stage)
         {
@@ -239,6 +304,12 @@ void run_viewer_test()
             settings.exposure_ev = 0.5f;
             advance(Stage::exposure_update);
             viewer.set_display_settings(settings);
+            // The inspector now requests +0.5 EV, but the front texture is still at 0 EV.
+            at_click = samples;
+            if (!viewer.try_save_snapshot(first_path))
+                throw std::runtime_error("First snapshot rejected");
+            if (viewer.try_save_snapshot(directory / "must-not-run.png"))
+                throw std::runtime_error("A second save displaced an accepted save");
             break;
         }
         case Stage::exposure_update:
@@ -250,19 +321,34 @@ void run_viewer_test()
             if (status.phase != rv::ViewerPhase::idle || status.render_requested || status.submission_pending
                 || status.display_pending || status.display_dirty)
                 fail("Viewer is doing unexpected work while idle", stage, status, counts);
-            if (++idle_updates == required_idle_updates)
-                advance(Stage::finished);
+            if (idle_updates < required_idle_updates) ++idle_updates;
+            if (!verified_file)
+            {
+                const auto save = viewer.snapshot_status();
+                if (save.phase == rv::SnapshotPhase::failed) throw std::runtime_error(save.message);
+                if (save.phase == rv::SnapshotPhase::saved)
+                {
+                    if (!std::filesystem::equivalent(save.path, first_path))
+                        throw std::runtime_error("Wrong snapshot result path");
+                    verify_saved_png(save.path, at_click);
+                    verified_file = true;
+                }
+            }
+            if (verified_file && idle_updates == required_idle_updates) advance(Stage::finished);
             break;
         case Stage::finished:
             break;
         }
     }
 
+    if (!viewer.try_save_snapshot(directory / "at-close.png"))
+        throw std::runtime_error("Could not accept save before close");
     viewer.request_close();
     if (viewer.update())
         fail("Viewer ignored its close request", stage, viewer.status(), viewer.statistics());
     // Viewer destruction, including worker and CUDA/GL resource teardown,
-    // completes before main prints PASS.
+    // completes before the caller checks the output from this second save.
+    return samples;
 }
 }
 
@@ -270,9 +356,11 @@ int main()
 {
     try
     {
-        run_viewer_test();
+        TestDirectory directory;
+        const auto at_close = run_viewer_test(directory.path);
+        verify_saved_png(directory.path / "at-close.png", at_close);
         std::cout << "Triangle viewer: PASS (3 render submissions, 4 display updates, "
-                     "8 idle updates, shared application loop)\n";
+                     "8+ idle updates, PNG matches displayed exposure, accepted save survives close)\n";
         return EXIT_SUCCESS;
     }
     catch (const std::exception& error)

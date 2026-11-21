@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <exception>
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -43,6 +44,20 @@ struct ViewerStatistics
     std::uint64_t display_updates = 0;
 };
 
+enum class SnapshotPhase {
+    idle,
+    saving,
+    saved,
+    failed
+};
+
+struct SnapshotStatus
+{
+    SnapshotPhase phase = SnapshotPhase::idle;
+    std::filesystem::path path;
+    std::string message;
+};
+
 class Viewer final
 {
 public:
@@ -60,6 +75,10 @@ public:
     void request_render();
     void set_display_settings(const image_processing::OutputTransformSettings& settings);
     [[nodiscard]] image_processing::OutputTransformSettings display_settings() const;
+
+    [[nodiscard]] bool try_save_snapshot(std::filesystem::path path);
+    [[nodiscard]] SnapshotStatus snapshot_status() const;
+
     void request_close();
 
     [[nodiscard]] ViewerStatus status() const;

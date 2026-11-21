@@ -22,4 +22,10 @@ void write_png(
     const RGB8Image& image             // エンコードしたい画像
 );
 
+// 既存ファイルを上書きしないで保存する
+// 名前が衝突したら，_01 - _0999 を試し，実際のパスを返す
+[[nodiscard]] std::filesystem::path write_new_png(
+    const std::filesystem::path& requested, 
+    RGB8ImageView image
+);
 } //namespace renderer::image_io

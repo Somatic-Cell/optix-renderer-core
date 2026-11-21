@@ -1,0 +1,5 @@
+add_executable(renderer_new_png_test new_png_test.cpp)
+renderer_configure_host(renderer_new_png_test)
+target_link_libraries(renderer_new_png_test PRIVATE renderer::image_io fpng::fpng)
+add_test(NAME new_png COMMAND renderer_new_png_test "${CMAKE_CURRENT_BINARY_DIR}/png_test_data/$<CONFIG>")
+set_tests_properties(new_png PROPERTIES LABELS "cpu;image" TIMEOUT 30)

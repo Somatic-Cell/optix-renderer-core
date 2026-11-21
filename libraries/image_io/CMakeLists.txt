@@ -8,3 +8,7 @@ target_link_libraries(renderer_image_io
     PUBLIC renderer::image_types
     PRIVATE fpng::fpng Threads::Threads
 )
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

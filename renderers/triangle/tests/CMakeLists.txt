@@ -27,7 +27,7 @@ endif()
 if(RENDERER_BUILD_VIEWER AND RENDERER_ENABLE_VIEWER_TESTS AND RENDERER_ENABLE_GPU_TESTS)
     add_executable(triangle_viewer_test viewer_test.cpp)
     renderer_configure_host(triangle_viewer_test)
-    target_link_libraries(triangle_viewer_test PRIVATE renderer::triangle_viewer_application glfw OpenGL::GL)
+    target_link_libraries(triangle_viewer_test PRIVATE renderer::triangle_viewer_application glfw OpenGL::GL fpng::fpng)
     set_target_properties(triangle_viewer_test PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>/triangle_viewer_test")
     renderer_stage_optix_module(triangle_viewer_test renderer_triangle_programs triangle programs.optixir)

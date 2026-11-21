@@ -69,14 +69,11 @@ void validate_png_dimensions(std::uint32_t width, std::uint32_t height)
     }
 }
 
-// fpng を使って PNG ファイルをエンコードし，保存する
-void write_png(
-    const std::filesystem::path& path,  // 保存先のパス
-    const RGB8ImageView image          // エンコードしたい画像
-)
+namespace {
+std::vector<std::uint8_t> encode_png(RGB8ImageView image)
 {
     validate_png_dimensions(image.width, image.height);
-    
+
     // ディスクリプタの画素数と実際に格納されている画素数が不整合でないかどうかを確認
     const std::uint64_t pixel_count = static_cast<std::uint64_t>(image.width) * image.height;
     if(pixel_count > std::numeric_limits<std::size_t>::max() / sizeof(RGB8)
@@ -107,6 +104,18 @@ void write_png(
         throw std::length_error("Encoded PNG is too large for a single file write");
     }
 
+    return encoded;
+}
+} // namespace
+
+// fpng を使って PNG ファイルをエンコードし，保存する
+void write_png(
+    const std::filesystem::path& path,  // 保存先のパス
+    const RGB8ImageView image          // エンコードしたい画像
+)
+{
+    const auto encoded = encode_png(image);   
+
     // ----------------
     // 保存
     // ----------------
@@ -131,5 +140,66 @@ void write_png(const std::filesystem::path& path, const RGB8Image& image)
     write_png(path, RGB8ImageView{image.width, image.height, std::as_bytes(std::span(image.pixels))});
 }
 
+std::filesystem::path write_new_png(
+    const std::filesystem::path& requested,
+    RGB8ImageView image
+)
+{
+    if(
+        !requested.has_filename() 
+        || requested.filename() == "." 
+        || requested.filename() == ".."
+        || requested.native().find(std::filesystem::path::value_type{}) != std::filesystem::path::string_type::npos
+    )
+    {
+        throw std::invalid_argument("A PNG filename is required");
+    }
+    const auto encoded = encode_png(image);
+    // TODO: for ループではなく，内部にカウンタを持たせる
+    for(int suffix = 0; suffix <= 9999; ++suffix)
+    {
+        auto path = requested;
+        if (suffix != 0)
+        {
+            auto name = requested.stem();
+            const auto digits = std::to_string(suffix);
+            name += "_";
+            name += std::string(4 - digits.size(), '0');
+            name += digits;
+            name += requested.extension();
+            path.replace_filename(name);
+        }
+
+        std::FILE* file = nullptr;
+#ifdef _WIN32
+        const int error = ::_wfopen_s(&file, path.c_str(), L"wbx");
+#else
+        file = std::fopen(path.c_str(), "wbx");
+        const int error = file ? 0 : errno;
+#endif
+        if(error == EEXIST) continue;
+        if(!file)
+        {
+            throw std::filesystem::filesystem_error("Cannot create PNG", path, {error, std::generic_category()});
+        }
+
+        const auto written = std::fwrite(encoded.data(), 1, encoded.size(), file);
+        
+        const int write_error = written == encoded.size() ? 0 : (errno ? errno: EIO);
+        const int close_error = std::fclose(file) == 0 ? 0 : (errno ? errno: EIO);
+        if(write_error || close_error)
+        {
+            std::error_code ignored;
+            std::filesystem::remove(path, ignored);
+            throw std::filesystem::filesystem_error("Cannot finish PNG", path, 
+                {write_error ? write_error : close_error, std::generic_category()}); 
+        }
+
+        return path;
+
+    }
+    throw std::filesystem::filesystem_error("NO unused PNG filename", requested, std::make_error_code(std::errc::file_exists));
+
+}
 
 } // namespace renderer::asset_io

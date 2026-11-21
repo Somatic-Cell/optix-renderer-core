@@ -1,4 +1,6 @@
 #include <renderer/render_viewer/viewer.hpp>
+#include "snapshot_panel.hpp"
+#include <renderer/image_export/snapshot_writer.hpp>
 #include <renderer/cuda_gl_display/sufrece_presenter.hpp>
 #include <renderer/image_processing/output_transform.hpp>
 #include <renderer/render_execution/render_execution.hpp>
@@ -64,6 +66,14 @@ struct Backend
 
 using Execution = render_execution::RenderExecution<Backend>;
 
+
+struct DisplayFrame
+{
+    gpu::SubmittedRGB32fImage image;
+    std::shared_ptr<DisplayProgram> program;
+    image_processing::OutputTransformSettings settings;
+};
+
 std::string failure_text(std::exception_ptr error)
 {
     try 
@@ -111,7 +121,13 @@ struct Viewer::Impl
     tasks::WorkerStatus worker_status_;
     std::optional<gpu::SubmittedRGB32fImage> latest_;
     std::shared_ptr<DisplayProgram> display_;
+
+    std::optional<DisplayFrame> presenting_;
+    std::optional<DisplayFrame> presented_;
     std::unique_ptr<cuda_gl_display::SurfacePresenter> presenter_;
+    image_export::SnapshotWriter snapshot_writer_;
+    SnapshotStatus snapshot_status_;
+    SnapshotPanel snapshot_panel_;
 
     std::exception_ptr error_;
     std::string error_message_;
@@ -177,21 +193,69 @@ struct Viewer::Impl
     void update_display()
     {
         if (!presenter_) return;
-        static_cast<void>(presenter_->poll());
-        // Polling does not clear display_dirty_: changes may arrive in flight.
+        if(presenter_->poll())
+        {
+
+            presented_ = std::move(presenting_);
+            presenting_.reset();
+        }
         if (!latest_ || !display_dirty_ || presenter_->pending()) return;
 
-        const auto settings = display_settings_;
-        // Retain event+pixels+context and module until surface completion.
-        const bool accepted = presenter_->try_submit(
-            [frame = *latest_, program = display_, settings]
+        
+        presenting_.emplace(DisplayFrame{*latest_, display_, display_settings_});
+        const bool accepted = presenter_->try_submit([this]
             (gpu::RGBA8SurfaceView surface, const cdw::Stream& stream)
-            {
-                // This is a GPU dependency, NOT a CPU wait for rendering.
-                cdw::stream_wait_event(stream, frame.completion_event());
-                program->transform.enqueue(frame.image(), surface, stream, settings);
-            });
+        {
+            const auto& frame = *presenting_;
+            cdw::stream_wait_event(stream, frame.image.completion_event());
+            frame.program->transform.enqueue(frame.image.image(), surface, stream, frame.settings);
+        });
         if (accepted) display_dirty_ = false;
+        else presenting_.reset(); // A refusal enqueued nothing; retry with the latest settings.
+    }
+
+    void snapshot_failed(std::exception_ptr error)
+    {
+        snapshot_status_.phase = SnapshotPhase::failed;
+        snapshot_status_.message = "Snapshot failed: " + failure_text(error);
+    }
+
+    bool try_save_snapshot(std::filesystem::path path)
+    {
+        if (error_ || !presented_ || snapshot_writer_.busy()) return false;
+        try
+        {
+            SnapshotStatus submitting{SnapshotPhase::saving, path, "Saving snapshot..."};
+            const auto& frame = *presented_;
+            // The alias owns DisplayProgram (and its context), not just a raw module pointer.
+            std::shared_ptr<const image_processing::OutputTransform> transform(
+                frame.program, &frame.program->transform);
+            if (!snapshot_writer_.try_submit(frame.image, std::move(transform), frame.settings, std::move(path)))
+                return false;
+            snapshot_status_ = std::move(submitting);
+            return true;
+        }
+        catch (...)
+        {
+            snapshot_status_.path.clear();
+            snapshot_failed(std::current_exception());
+            return false;
+        }
+    }
+
+    void update_snapshot()
+    {
+        if (!snapshot_writer_.busy()) return;
+        try
+        {
+            if (auto path = snapshot_writer_.poll())
+            {
+                const auto bytes = path->u8string();
+                snapshot_status_ = {SnapshotPhase::saved, std::move(*path),
+                    "Saved: " + std::string(bytes.begin(), bytes.end())};
+            }
+        }
+        catch (...) { snapshot_failed(std::current_exception()); }
     }
 
     void start_execution()
@@ -312,12 +376,24 @@ struct Viewer::Impl
             set_display_settings(settings);
         ImGui::TextWrapped("Exposure only updates the display surface. Resizing the UI does not render or rebuild the scene.");
         if (error_) ImGui::TextWrapped("%s", error_message_.c_str());
+        try
+        {
+            if (auto path = snapshot_panel_.draw(presented_.has_value() && !error_ && !snapshot_writer_.busy(),
+                    snapshot_status_))
+                static_cast<void>(try_save_snapshot(std::move(*path)));
+        }
+        catch (...)
+        {
+            snapshot_status_.path.clear();
+            snapshot_failed(std::current_exception());
+        }
         if (application_.draw_inspector) { ImGui::Separator(); application_.draw_inspector(); }
     }
 
     bool update()
     {
         if (window_.should_close()) return false;
+        update_snapshot();
         if (!error_)
         {
             try
@@ -360,6 +436,9 @@ void Viewer::set_display_settings(const image_processing::OutputTransformSetting
 { impl_->set_display_settings(settings); }
 image_processing::OutputTransformSettings Viewer::display_settings() const
 { return impl_->display_settings_; }
+bool Viewer::try_save_snapshot(std::filesystem::path path)
+{ return impl_->try_save_snapshot(std::move(path)); }
+SnapshotStatus Viewer::snapshot_status() const { return impl_->snapshot_status_; }
 void Viewer::request_close() { impl_->window_.request_close(); }
 ViewerStatus Viewer::status() const { return impl_->status(); }
 ViewerStatistics Viewer::statistics() const noexcept { return impl_->statistics(); }
