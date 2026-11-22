@@ -1,8 +1,6 @@
-add_executable(triangle_config_io_test
-    config_io_test.cpp ../app/render_config.cpp ../app/render_config_json.cpp)
+add_executable(triangle_config_io_test config_io_test.cpp)
 renderer_configure_host(triangle_config_io_test)
-target_include_directories(triangle_config_io_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../app")
-target_link_libraries(triangle_config_io_test PRIVATE renderer::config_io renderer::export_settings)
+target_link_libraries(triangle_config_io_test PRIVATE renderer::triangle_config renderer::config_io)
 add_test(NAME triangle_config_io COMMAND triangle_config_io_test
     "${CMAKE_CURRENT_BINARY_DIR}/config_io_test_data/$<CONFIG>")
 set_tests_properties(triangle_config_io PROPERTIES LABELS "cpu;config;triangle" TIMEOUT 30)

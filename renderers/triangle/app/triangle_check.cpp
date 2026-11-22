@@ -17,7 +17,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace renderer::app
+namespace renderer::triangle
 {
 namespace
 {
@@ -93,8 +93,7 @@ void verify_triangle(
             throw std::runtime_error("Triangle verification found a non-finite pixel");
         }
 
-        // Double precision is confined to this independent analytic reference;
-        // rendering and the GPU output transform use float.
+        // GPU 側の単精度演算から独立した参照値を得るため，解析解は倍精度で計算する．
         std::array<double, 3> expected{0.02, 0.03, 0.05};
         if (probe.inside)
         {
@@ -118,7 +117,7 @@ void verify_triangle(
                 + ", " + std::to_string(probe.y) + ")");
         }
 
-        // Validate the downloaded bytes independently of the sampled GPU float.
+        // RGB8 の期待値も解析解から求め，GPU の浮動小数点出力に依存せずに検証する．
         const std::array<int, 3> expected_bytes{
             reference_output_byte(expected[0], exposure_scale),
             reference_output_byte(expected[1], exposure_scale),
@@ -147,4 +146,4 @@ void verify_triangle(
               << maximum_byte_error << ")\n";
 }
 
-} // namespace renderer::app
+} // namespace renderer::triangle

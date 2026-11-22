@@ -5,6 +5,8 @@ add_subdirectory(image_processing)
 add_subdirectory(image_io)
 add_subdirectory(image_export)
 add_subdirectory(config_io)
+add_subdirectory(app_support)
+add_subdirectory(app_support/gpu)
 add_subdirectory(task_execution)
 add_subdirectory(render_execution)
 

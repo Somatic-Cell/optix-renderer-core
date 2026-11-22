@@ -1,4 +1,4 @@
-#include "viewer_application.hpp"
+#include <renderer/triangle/viewer_application.hpp>
 
 #include <renderer/render_viewer/viewer.hpp>
 

@@ -1,15 +1,15 @@
 #pragma once
 
-#include "render_config.hpp"
+#include <renderer/triangle/config.hpp>
 
 #include <filesystem>
 
-namespace renderer::app
+namespace renderer::triangle
 {
 
 int run(
-    const config::RenderConfig& config,
+    const RenderConfig& config,
     const std::filesystem::path& module_directory
 );
 
-} // namespace renderer::app
+} // namespace renderer::triangle

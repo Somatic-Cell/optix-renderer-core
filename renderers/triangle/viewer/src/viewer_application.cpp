@@ -1,4 +1,4 @@
-#include "viewer_application.hpp"
+#include <renderer/triangle/viewer_application.hpp>
 
 #include <renderer/triangle/render_session.hpp>
 
@@ -7,8 +7,7 @@
 
 namespace
 {
-// Only this adapter knows the concrete renderer. No duplicated worker/display
-// loop, GL resource management, transfer code or cancellation infrastructure.
+// triangle の描画セッションをビューア共通の FrameSource として公開する．
 class TriangleSource final : public renderer::render_viewer::FrameSource
 {
 public:

@@ -1,5 +1,4 @@
-#include "render_config.hpp"
-#include "render_config_json.hpp"
+#include <renderer/triangle/config.hpp>
 
 #include <renderer/config_io/json_document.hpp>
 #include <renderer/config_io/json_fields.hpp>
@@ -16,7 +15,7 @@
 namespace
 {
 using Json = nlohmann::json;
-using renderer::config::RenderConfig;
+using renderer::triangle::RenderConfig;
 namespace io = renderer::config_io;
 int passed = 0;
 
@@ -72,6 +71,7 @@ int main(int argc, char** argv)
         test("default document round trip", []
         {
             const auto document = defaults();
+            require(document.at("renderer").at("type") == "triangle", "renderer tag changed");
             require(Json(document.get<RenderConfig>()) == document, "round trip changed settings");
         });
         test("minimal document and defaults", []
@@ -224,7 +224,7 @@ int main(int argc, char** argv)
         test("invalid settings cannot be serialized", []
         {
             auto value = RenderConfig{};
-            value.renderer.type = static_cast<renderer::config::RendererType>(99);
+            value.output.format = static_cast<renderer::image_export::ImageFileFormat>(99);
             rejects([&] { static_cast<void>(Json(value)); });
             value = {};
             value.output.transform.exposure_ev = (std::numeric_limits<float>::infinity)();
@@ -283,11 +283,11 @@ int main(int argc, char** argv)
             document["output"]["path"] = "../images/result.png";
             document["output"]["exposure_ev"] = 0.25;
             io::save_json_document(source, document);
-            const auto original = renderer::config::load_render_config(source);
+            const auto original = renderer::triangle::load_render_config(source);
             require(original.output.path == root / "images" / "result.png",
                 "load did not resolve path against config directory");
-            renderer::config::save_render_config(destination, original);
-            const auto restored = renderer::config::load_render_config(destination);
+            renderer::triangle::save_render_config(destination, original);
+            const auto restored = renderer::triangle::load_render_config(destination);
             require(Json(restored) == Json(original), "Save As changed effective settings");
         });
         test("invalid save does not truncate an existing configuration", [&]
@@ -295,13 +295,13 @@ int main(int argc, char** argv)
             const auto before = io::load_json_document(destination);
             auto invalid = RenderConfig{};
             invalid.output.transform.exposure_ev = 100.0f;
-            rejects([&] { renderer::config::save_render_config(destination, invalid); });
+            rejects([&] { renderer::triangle::save_render_config(destination, invalid); });
             require(io::load_json_document(destination) == before, "invalid save changed the file");
         });
         test("empty config paths rejected", []
         {
-            rejects([] { static_cast<void>(renderer::config::load_render_config({})); });
-            rejects([] { renderer::config::save_render_config({}, RenderConfig{}); });
+            rejects([] { static_cast<void>(renderer::triangle::load_render_config({})); });
+            rejects([] { renderer::triangle::save_render_config({}, RenderConfig{}); });
         });
 #ifdef _WIN32
         rejects_at("drive-relative output path", "/output/path", "C:result.png");

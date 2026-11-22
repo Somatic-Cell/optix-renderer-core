@@ -4,15 +4,14 @@
 #include <renderer/gpu/image_view.hpp>
 #include <renderer/image_processing/output_transform_settings.hpp>
 
-namespace renderer::app
+namespace renderer::triangle
 {
 
-// Fixed M1 diagnostic for the 800 x 600 triangle scene. The caller must wait
-// for rendering to finish before this synchronous, eight-pixel readback.
+// 800 × 600 の固定シーンを 8 点で検証する．同期読み戻しを行うため，呼び出し前に描画の完了を待つ．
 void verify_triangle(
     gpu::ConstRGB32fImageView image,
     RGB8ImageView readback,
     const image_processing::OutputTransformSettings& settings
 );
 
-} // namespace renderer::app
+} // namespace renderer::triangle

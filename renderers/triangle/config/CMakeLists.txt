@@ -1,0 +1,5 @@
+add_library(renderer_triangle_config STATIC src/config.cpp)
+add_library(renderer::triangle_config ALIAS renderer_triangle_config)
+renderer_configure_host(renderer_triangle_config)
+target_include_directories(renderer_triangle_config PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(renderer_triangle_config PUBLIC renderer::app_support)
