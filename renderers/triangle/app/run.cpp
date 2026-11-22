@@ -44,7 +44,6 @@ void render_triangle(const RenderConfig& config, CUdevice device,
 }
 int run(const RenderConfig& config, const std::filesystem::path& module_directory)
 {
-    image_export::validate_export_request(config.output, config.renderer.width, config.renderer.height);
     const auto triangle_module = module_path(module_directory);
     const auto output_module = image_processing::output_transform_module_path(module_directory);
     if (!std::filesystem::is_regular_file(triangle_module) || !std::filesystem::is_regular_file(output_module))
@@ -53,7 +52,7 @@ int run(const RenderConfig& config, const std::filesystem::path& module_director
     render_triangle(config, device, triangle_module, output_module);
     std::cout << "Saved: " << std::filesystem::absolute(config.output.path) << " ("
         << config.renderer.width << " x " << config.renderer.height
-        << ", RGB8, exposure EV: " << config.output.transform.exposure_ev << ")\n";
+        << ", RGB8, exposure EV: " << config.output.transform.exposure_ev.value() << ")\n";
     return EXIT_SUCCESS;
 }
 }

@@ -153,7 +153,7 @@ void run_test()
 
         if (!submitted && completed < exposures.size())
         {
-            settings.exposure_ev = exposures[completed];
+            settings.exposure_ev = processing::ExposureEv{exposures[completed]};
             submitted = presenter.try_submit([input, &transform, settings]
                 (renderer::gpu::RGBA8SurfaceView surface, const cdw::Stream& stream)
             {

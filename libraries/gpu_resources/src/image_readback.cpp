@@ -49,7 +49,6 @@ struct ImageReadbackStorage::Impl
     cdw::PinnedHostBuffer host_pixels;
     cdw::Event completed;
     State state = State::idle;
-    bool pending = false;
 
     Impl(
         const cdw::Stream& stream_in,
@@ -73,7 +72,7 @@ struct ImageReadbackStorage::Impl
 
     ~Impl() noexcept
     {
-        if (!pending)
+        if(state == State::idle || state == State::complete)
         {
             return;
         }
@@ -101,7 +100,8 @@ struct ImageReadbackStorage::Impl
         std::uint32_t w,
         std::uint32_t h,
         std::size_t stride,
-        const cdw::Event* producer  // 描画の完了を記録するイベント 
+        const cdw::Event* producer,  // 描画の完了を記録するイベント
+        const std::function<void(const cdw::Stream&)>& before_copy 
     )
     {
         // 処理の投入は一度だけ行うので，submit が呼ばれた時点で idle になっていないのは不正
@@ -124,16 +124,18 @@ struct ImageReadbackStorage::Impl
         }
 
         // 入力の検証終わり
-
-        
+        // ここからは，途中で失敗したとしても，破棄時にストリームを同期してからバッファを解放する
         state = State::failed;
-        pending = true;
 
         if(producer)
         {
-            // 画像のレンダリングが終わるまで待つ
-            // 書き戻しはレンダリングが完了してから
+            // 転送側のストリームで，画像の生成が終わるまで待つ
             cdw::stream_wait_event(stream, *producer);
+        }
+
+        if(before_copy)
+        {
+            before_copy(stream);
         }
 
         if (stride == row_bytes)
@@ -201,7 +203,6 @@ struct ImageReadbackStorage::Impl
         
             // 完了した
             state = State::complete;
-            pending = false;
             return true;
         }
 
@@ -231,7 +232,6 @@ struct ImageReadbackStorage::Impl
             }
 
             state = State::complete;
-            pending = false;
         }
     }
 };
@@ -253,10 +253,11 @@ void ImageReadbackStorage::submit(
     std::uint32_t width, 
     std::uint32_t height,
     std::size_t stride,
-    const cdw::Event* producer
+    const cdw::Event* producer,
+    const std::function<void(const cdw::Stream&)>& before_copy
 )
 {
-    impl_->submit(source, width, height, stride, producer);
+    impl_->submit(source, width, height, stride, producer, before_copy);
 }
 
 bool ImageReadbackStorage::is_ready() { return impl_->is_ready(); }

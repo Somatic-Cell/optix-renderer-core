@@ -27,6 +27,14 @@ Writer select_writer(ImageFileFormat format)
     throw std::invalid_argument("Unsupported image file format");
 }
 
+Writer checked_writer(const ExportSettings& settings)
+{
+    validate_export_path(settings.path);
+    const auto writer = select_writer(settings.format);
+    image_processing::validate_output_transform_settings(settings.transform);
+    return writer;
+}
+
 } // namespace
 
 void validate_export_settings(const ExportSettings& settings)
@@ -53,8 +61,7 @@ void validate_export_request(
     std::uint32_t height
 )
 {
-    validate_export_settings(settings);
-    select_writer(settings.format).validate_dimensions(width, height);
+    checked_writer(settings).validate_dimensions(width, height);
 }
 
 void write_export_image(
@@ -62,8 +69,7 @@ void write_export_image(
     RGB8ImageView image
 )
 {
-    validate_export_request(settings, image.width, image.height);
-    select_writer(settings.format).write(settings.path, image);
+    checked_writer(settings).write(settings.path, image);
 }
 
 } // namespace renderer::image_export

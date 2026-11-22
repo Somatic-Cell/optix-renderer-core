@@ -59,7 +59,7 @@ void verify_triangle(
         throw std::invalid_argument("Invalid CPU readback layout for triangle verification");
     }
     image_processing::validate_output_transform_settings(settings);
-    const double exposure_scale = std::exp2(static_cast<double>(settings.exposure_ev));
+    const double exposure_scale = std::exp2(static_cast<double>(settings.exposure_ev.value()));
 
     struct Probe
     {

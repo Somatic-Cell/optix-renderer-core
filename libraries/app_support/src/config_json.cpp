@@ -25,19 +25,7 @@ constexpr std::array color_encodings{
 
 void validate_output_path(const std::filesystem::path& path)
 {
-    if(path.empty())
-    {
-        throw std::invalid_argument("Export must not be empty");
-    }
-
-    if(
-        path.native().find(std::filesystem::path::value_type{})
-        != std::filesystem::path::string_type::npos
-    )
-    {
-        throw std::invalid_argument("must not contain a NUL character");
-    }
-
+    image_export::validate_export_path(path);
     if(path.has_root_name() && !path.has_root_directory())
     {
         throw std::invalid_argument("drive-relative paths are not supported");
@@ -67,17 +55,17 @@ struct PathCodec
 
 struct ExposureCodec
 {
-    void read(const Json& document, float& value) const 
+    void read(const Json& document, image_processing::ExposureEv& value) const 
     {
-        double number = 0.0;
-        io::JsonValueCodec{}.read(document, number);
-        image_processing::validate_exposure_ev(number);
-        value = static_cast<float>(number);
+        if (!document.is_number())
+        {
+            throw std::invalid_argument("must be a number");
+        }
+        value = image_processing::ExposureEv{document.get<double>()};
     }
 
     Json write(float value) const 
     {
-        image_processing::validate_exposure_ev(value);
         return value;
     }
 };
@@ -127,13 +115,14 @@ void OutputSettingsCodec::read(const nlohmann::json& document, image_export::Exp
 {
     auto candidate = value;
     config_io::read_json_fields(document, candidate, output_fields);
+
+    // 部分読み込みでは，省略されたフィールドの元の値も検査してから反映する
     image_export::validate_export_settings(candidate);
     value = std::move(candidate);
 }
 
 nlohmann::json OutputSettingsCodec::write(const image_export::ExportSettings& value) const
 {
-    image_export::validate_export_settings(value);
     return config_io::write_json_fields(value, output_fields);
 }
 

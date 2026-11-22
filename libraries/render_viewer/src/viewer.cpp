@@ -27,50 +27,20 @@ namespace cdw = cuda_driver_wrapper;
 
 struct DisplayProgram
 {
-    // 
+    // モジュールを破棄するまで，生成に使った CUDA コンテキストを保持する
     std::shared_ptr<const void> context_owner;
-    // 
     image_processing::OutputTransform transform;
 
     DisplayProgram(SourceInfo info, const std::filesystem::path& path)
         : context_owner(std::move(info.context_lifetime)), transform(info.context, path) {}
 };
 
-// 1 回のタスクの結果
-// GPU に投入済みの画像生成処理を参照するオブジェクトを返す
-struct Reply
-{
-    gpu::SubmittedRGB32fImage image;
-    std::shared_ptr<DisplayProgram> display;
-};
-
-// 
-struct Backend
-{
-    std::unique_ptr<FrameSource> source; // persistent renderer, destroyed on worker
-    std::shared_ptr<DisplayProgram> display;
-
-    bool try_advance() { return source->try_advance(); }
-    bool collect() { return source->collect(); };
-
-    std::optional<Reply> take_latest_image()
-    {
-        auto image = source->take_latest_image();
-        if(!image)
-        {
-            return std::nullopt;
-        }
-        return Reply{std::move(*image), display};
-    }
-};
-
-using Execution = render_execution::RenderExecution<Backend>;
+using Execution = render_execution::RenderExecution<FrameSource>;
 
 
 struct DisplayFrame
 {
     gpu::SubmittedRGB32fImage image;
-    std::shared_ptr<DisplayProgram> program;
     image_processing::OutputTransformSettings settings;
 };
 
@@ -117,10 +87,13 @@ struct Viewer::Impl
     viewer::Window window_;
     viewer::Workspace workspace_;
 
+    // ワーカーが初期化時に一度だけ設定
+    // UI は最初の画像を受け取ったあとに読む
+    // 初期化中に閉じた場合も，execution_ がワーカーの終了を待ってから display_ を破棄する
+    std::shared_ptr<DisplayProgram> display_;
     std::unique_ptr<Execution> execution_;
     tasks::WorkerStatus worker_status_;
     std::optional<gpu::SubmittedRGB32fImage> latest_;
-    std::shared_ptr<DisplayProgram> display_;
 
     std::optional<DisplayFrame> presenting_;
     std::optional<DisplayFrame> presented_;
@@ -181,10 +154,9 @@ struct Viewer::Impl
             throw std::runtime_error("Renderer session stopped");
         if (worker_status_.phase != tasks::WorkerPhase::completed) return;
 
-        auto reply = execution_->try_take_result();
-        if (!reply) return;
-        latest_.emplace(std::move(reply->image));
-        display_ = std::move(reply->display);
+        auto image = execution_->try_take_result();
+        if (!image) return;
+        latest_.emplace(std::move(*image));
         display_dirty_ = true;
         if (received_images_ != (std::numeric_limits<std::uint64_t>::max)()) ++received_images_;
         worker_status_ = execution_->status();
@@ -208,13 +180,13 @@ struct Viewer::Impl
         if (!latest_ || !display_dirty_ || presenter_->pending()) return;
 
         
-        presenting_.emplace(DisplayFrame{*latest_, display_, display_settings_});
+        presenting_.emplace(DisplayFrame{*latest_, display_settings_});
         const bool accepted = presenter_->try_submit([this]
             (gpu::RGBA8SurfaceView surface, const cdw::Stream& stream)
         {
             const auto& frame = *presenting_;
             cdw::stream_wait_event(stream, frame.image.completion_event());
-            frame.program->transform.enqueue(frame.image.image(), surface, stream, frame.settings);
+            display_->transform.enqueue(frame.image.image(), surface, stream, frame.settings);
         });
         if (accepted) display_dirty_ = false;
         else presenting_.reset(); // A refusal enqueued nothing; retry with the latest settings.
@@ -233,9 +205,9 @@ struct Viewer::Impl
         {
             SnapshotStatus submitting{SnapshotPhase::saving, path, "Saving snapshot..."};
             const auto& frame = *presented_;
-            // The alias owns DisplayProgram (and its context), not just a raw module pointer.
+            // 保存が完了するまで，モジュールとそのコンテキストをまとめて保持する
             std::shared_ptr<const image_processing::OutputTransform> transform(
-                frame.program, &frame.program->transform);
+                display_, &display_->transform);
             if (!snapshot_writer_.try_submit(frame.image, std::move(transform), frame.settings, std::move(path)))
                 return false;
             snapshot_status_ = std::move(submitting);
@@ -267,21 +239,21 @@ struct Viewer::Impl
     void start_execution()
     {
         if (execution_) return;
-        // Visible UI exists before OptiX/module/GAS preparation starts.
+        // ウィンドウを表示してから，ワーカー上でセッションと表示用モジュールを準備する
         const LaunchEnvironment environment{
             cuda_gl_display::device_for_current_gl_context(),
             application_.module_directory, validation_};
         execution_ = std::make_unique<Execution>(
-            [factory = std::move(application_.create_source), environment](const tasks::TaskContext& task)
+            [factory = std::move(application_.create_source), environment, &display = display_]
+            (const tasks::TaskContext& task)
             {
-                auto backend = std::make_unique<Backend>();
                 task.report("Preparing renderer session...");
-                backend->source = factory(environment, task);
-                if (!backend->source) throw std::runtime_error("Frame source is null");
+                auto source = factory(environment, task);
+                if (!source) throw std::runtime_error("Frame source is null");
                 task.report("Loading the shared linear/surface transform module...");
-                backend->display = std::make_shared<DisplayProgram>(backend->source->info(),
+                display = std::make_shared<DisplayProgram>(source->info(),
                     image_processing::output_transform_module_path(environment.module_directory));
-                return backend;
+                return source;
             });
     }
 
@@ -366,21 +338,32 @@ struct Viewer::Impl
     {
         ImGui::TextUnformatted("Persistent session / surface display");
         ImGui::Text("UI: %.1f FPS", ImGui::GetIO().Framerate);
+        
         const auto counts = statistics();
         ImGui::Text("Render submissions received: %llu",
             static_cast<unsigned long long>(counts.received_images));
         ImGui::Text("Display updates: %llu",
             static_cast<unsigned long long>(counts.display_updates));
-        if (ImGui::Checkbox("VSync", &vsync_)) window_.set_vsync(vsync_);
+        
+            if (ImGui::Checkbox("VSync", &vsync_)) window_.set_vsync(vsync_);
         const bool ready = execution_ && worker_status_.accepting() && !error_;
+        
         ImGui::BeginDisabled(!ready || render_requested_);
         if (ImGui::Button("Render again")) render_requested_ = true;
         ImGui::EndDisabled();
-        auto settings = display_settings_;
-        if (ImGui::SliderFloat("Exposure (EV)", &settings.exposure_ev,
-            image_processing::minimum_exposure_ev, image_processing::maximum_exposure_ev))
+        
+        float exposure = display_settings_.exposure_ev.value();
+        if (ImGui::SliderFloat("Exposure (EV)", &exposure,
+            image_processing::minimum_exposure_ev, image_processing::maximum_exposure_ev,
+            "%.3f", ImGuiSliderFlags_AlwaysClamp))
+        {
+            auto settings = display_settings_;
+            settings.exposure_ev = image_processing::ExposureEv{exposure};
             set_display_settings(settings);
+        }
+
         ImGui::TextWrapped("Exposure only updates the display surface. Resizing the UI does not render or rebuild the scene.");
+
         if (error_) ImGui::TextWrapped("%s", error_message_.c_str());
         if (application_.draw_inspector) { ImGui::Separator(); application_.draw_inspector(); }
     }

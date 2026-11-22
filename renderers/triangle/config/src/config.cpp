@@ -52,7 +52,7 @@ void validate_config(const RenderConfig& value)
 {
     try
     {
-        image_export::validate_export_request(value.output, value.renderer.width, value.renderer.height);
+        image_export::validate_export_dimensions(value.output.format, value.renderer.width, value.renderer.height);
     }
     catch (const std::length_error& error)
     {

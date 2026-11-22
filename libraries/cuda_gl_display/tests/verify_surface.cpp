@@ -26,7 +26,6 @@ void verify_surface(unsigned int texture, gpu::ConstRGB32fImageView source,
     const image_processing::OutputTransform& transform,
     const image_processing::OutputTransformSettings& settings)
 {
-    image_processing::validate_output_transform_settings(settings);
     static_cast<void>(gpu::validate_image_view(source, source.memory.context));
     using GetTextureSubImage = void (RENDERER_GL_CALL*)(GLuint, GLint,
         GLint, GLint, GLint, GLsizei, GLsizei, GLsizei, GLenum, GLenum, GLsizei, void*);
@@ -97,7 +96,7 @@ void verify_surface(unsigned int texture, gpu::ConstRGB32fImageView source,
     catch (...) { cdw::synchronize_stream(stream); throw; }
     std::array<RGB8, 8> reference_bytes{};
     cdw::copy_device_to_host(std::as_writable_bytes(std::span(reference_bytes)), reference.view());
-    const double exposure = std::exp2(static_cast<double>(settings.exposure_ev));
+    const double exposure = std::exp2(static_cast<double>(settings.exposure_ev.value()));
     const auto encode = [exposure](float value)
     {
         const double linear = std::clamp(static_cast<double>(value) * exposure, 0.0, 1.0);

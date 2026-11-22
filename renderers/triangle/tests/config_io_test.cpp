@@ -15,6 +15,7 @@
 namespace
 {
 using Json = nlohmann::json;
+using renderer::image_processing::ExposureEv;
 using renderer::triangle::RenderConfig;
 namespace io = renderer::config_io;
 int passed = 0;
@@ -104,7 +105,7 @@ int main(int argc, char** argv)
             config.renderer.width = 641;
             config.renderer.height = 479;
             config.output.path = std::filesystem::path(u8"../画像/結果.png");
-            config.output.transform.exposure_ev = 0.1f;
+            config.output.transform.exposure_ev = ExposureEv{0.1f};
             const Json document = config;
             const auto restored = document.get<RenderConfig>();
             require(Json(restored) == document, "non-default round trip changed settings");
@@ -124,7 +125,7 @@ int main(int argc, char** argv)
             {
                 auto document = defaults();
                 document["output"]["exposure_ev"] = endpoint;
-                require(document.get<RenderConfig>().output.transform.exposure_ev == endpoint,
+                require(document.get<RenderConfig>().output.transform.exposure_ev.value() == endpoint,
                     "valid endpoint rejected");
             }
         });
@@ -226,9 +227,7 @@ int main(int argc, char** argv)
             auto value = RenderConfig{};
             value.output.format = static_cast<renderer::image_export::ImageFileFormat>(99);
             rejects([&] { static_cast<void>(Json(value)); });
-            value = {};
-            value.output.transform.exposure_ev = (std::numeric_limits<float>::infinity)();
-            rejects([&] { static_cast<void>(Json(value)); });
+            rejects([] { static_cast<void>(ExposureEv{(std::numeric_limits<double>::infinity)()}); });
         });
         test("duplicate JSON keys", []
         {
@@ -294,7 +293,7 @@ int main(int argc, char** argv)
         {
             const auto before = io::load_json_document(destination);
             auto invalid = RenderConfig{};
-            invalid.output.transform.exposure_ev = 100.0f;
+            invalid.output.format = static_cast<renderer::image_export::ImageFileFormat>(99);
             rejects([&] { renderer::triangle::save_render_config(destination, invalid); });
             require(io::load_json_document(destination) == before, "invalid save changed the file");
         });

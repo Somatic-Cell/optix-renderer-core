@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <span>
 
@@ -41,8 +42,9 @@ public:
         cuda_driver_wrapper::ConstDeviceMemoryView source,
         std::uint32_t width, 
         std::uint32_t height,
-        std::size_t row_image_bites,
-        const cuda_driver_wrapper::Event* producer
+        std::size_t stride,
+        const cuda_driver_wrapper::Event* producer,
+        const std::function<void(const cuda_driver_wrapper::Stream&)>& before_copy = {}
     );
 
     // 呼び戻し処理について，現在の状態を返す
@@ -77,15 +79,15 @@ public:
     ImageReadback(const ImageReadback&&) = delete;
     ImageReadback& operator=(ImageReadback&&) = delete;
 
-    // 1 回だけよぶ
-    // GPU での画像の変換と CPU への転送を依頼する
-    // 呼び出した CPU スレッドは GPU の完了を待たない
+    // producer の完了待ちと転送の間に，同じストリームへ処理を投入する．
+    // before_copy は submit 内で呼び出し，保持しない．
     void submit(
         ConstImageView<Pixel> input,
-        const cuda_driver_wrapper::Event& producer
+        const cuda_driver_wrapper::Event& producer,
+        const std::function<void(const cuda_driver_wrapper::Stream&)> before_copy
     )
     {
-        storage_.submit(input.memory, input.width, input.height, input.row_stride_bytes, &producer);
+        storage_.submit(input.memory, input.width, input.height, input.row_stride_bytes, &producer, before_copy);
     }
     
     void submit(

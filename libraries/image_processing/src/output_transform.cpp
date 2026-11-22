@@ -87,7 +87,7 @@ void OutputTransform::enqueue(
     std::uint64_t destination_stride = output.row_stride_bytes;
     std::uint32_t width = input.width;
     std::uint32_t height = input.height;
-    float exposure_scale = std::exp2(settings.exposure_ev);
+    float exposure_scale = std::exp2(settings.exposure_ev.value());
     auto arguments = std::to_array<void*>({
         &source,
         &source_stride,
@@ -137,7 +137,7 @@ void OutputTransform::enqueue(
     CUsurfObject surface = output.surface;
     std::uint32_t width = input.width;
     std::uint32_t height = input.height;
-    float exposure_scale = std::exp2(settings.exposure_ev);
+    float exposure_scale = std::exp2(settings.exposure_ev.value());
     auto arguments = std::to_array<void*>({
         &source,
         &source_stride,

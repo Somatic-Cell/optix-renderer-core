@@ -301,7 +301,7 @@ DisplaySamples run_viewer_test(const std::filesystem::path& directory)
         case Stage::third_image:
         {
             auto settings = viewer.display_settings();
-            settings.exposure_ev = 0.5f;
+            settings.exposure_ev = renderer::image_processing::ExposureEv{0.5};
             advance(Stage::exposure_update);
             viewer.set_display_settings(settings);
             // The inspector now requests +0.5 EV, but the front texture is still at 0 EV.

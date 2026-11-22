@@ -21,7 +21,12 @@ struct ExportSettings
     image_processing::OutputTransformSettings transform{};
 };
 
+void validate_export_path(const std::filesystem::path& path);
+
 void validate_export_settings(const ExportSettings& settings);
+
+// 画素データを用意する前に，出力する形式で要求する画像の寸法を扱えるかどうか確認する
+void validate_export_dimensions(ImageFileFormat format, std::uint32_t width, std::uint32_t height);
 
 void validate_export_request(
     const ExportSettings& settings,
