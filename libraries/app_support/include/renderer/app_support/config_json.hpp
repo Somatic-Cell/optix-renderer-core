@@ -35,7 +35,7 @@ void bind_schema_version(Fields& fields)
     // TODO: バージョンが直書き
     constexpr std::uint32_t supported_version = 1;
     auto version = supported_version;
-    fields.required("Schema version", version);
+    fields.required("schema_version", version);
     if(version != supported_version)
     {
         throw std::invalid_argument("schema version: unsupported schema version; expected" + std::to_string(supported_version));
