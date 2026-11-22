@@ -15,7 +15,7 @@ function(renderer_configure_gpu_module target)
     endif()
 
     set_target_properties(${target} PROPERTIES
-        RENDER_MODULE_PATH "${module_STAGE_AS}"
+        RENDERER_MODULE_PATH "${module_STAGE_AS}"
         CUDA_RUNTIME_LIBRARY None           # CUDA Runtime library をリンクしない
         CUDA_STANDARD 20                    # C++ 20 を要求
         CUDA_STANDARD_REQUIRED ON           # C++ 20 を満たせない場合に古いバージョンへフォールバックすることを許さない
@@ -38,7 +38,7 @@ endfunction()
 function(renderer_add_optix_module target source)
     # コンパイル結果そのものをファイルとして取得したいため，OBJECT を選択
     add_library(${target} OBJECT "${source}")
-    renderer_configure_gpu_module(${target})
+    renderer_configure_gpu_module(${target} ${ARGN})
     set_target_properties(${target} PROPERTIES
         CUDA_OPTIX_COMPILATION ON           # OptiX IR にコンパイルする
         CUDA_SEPARABLE_COMPILATION ON       # 個々のソースファイルを独立した OptiX のモジュールとして生成するので OFF (Callable のときは ON?)
@@ -49,7 +49,7 @@ endfunction()
 function(renderer_add_cuda_module target source)
     # コンパイル結果そのものをファイルとして取得したいため，OBJECT を選択
     add_library(${target} OBJECT "${source}")
-    renderer_configure_gpu_module(${target})
+    renderer_configure_gpu_module(${target} ${ARGN})
     set_target_properties(${target} PROPERTIES
         CUDA_FATBIN_COMPILATION ON          # fatbin にコンパイルする
         CUDA_SEPARABLE_COMPILATION OFF      # 個々のソースファイルを独立した fatbin のモジュールとして生成するので OFF (Callable のときは ON?)
