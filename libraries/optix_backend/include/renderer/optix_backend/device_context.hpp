@@ -9,7 +9,9 @@ namespace renderer::optix_backend
 class DeviceContext final
 {
 public:
-    explicit DeviceContext(CUcontext cuda_context, bool enable_validation = false);
+    // OptiX のログ出力
+    // 0: 無効，3: 警告，4: 進捗を含める
+    explicit DeviceContext(CUcontext cuda_context, bool enable_validation = false, int log_level = 4);
     ~DeviceContext() noexcept;
 
     // コピー，ムーブの禁止

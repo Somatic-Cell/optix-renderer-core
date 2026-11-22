@@ -37,14 +37,6 @@ extern "C" __global__ void renderer_output_transform_rgb8(
         destination + y * destination_stride
     );
 
-    const renderer::RGB32f input = input_row[x];
-
-    if(!isfinite(input.r) || !isfinite(input.g) || !isfinite(input.b))
-    {
-        output_row[x] = {0, 0, 0};
-        return;
-    }
-    
     output_row[x] = renderer::image_processing::device::encode_rgb8(input_row[x], exposure_scale);
 
 }

@@ -32,20 +32,26 @@ void initialize_optix()
 
 } // namespace
 
-DeviceContext::DeviceContext(CUcontext cuda_context, bool enable_validation)
+DeviceContext::DeviceContext(CUcontext cuda_context, bool enable_validation, int log_level)
     : cuda_context_(cuda_context)
 {
     if (cuda_context_ == nullptr)
     {
         throw std::invalid_argument("DeviceContext requires a non-null CUDA context");
     }
+
+    if(log_level < 0)
+    {
+        throw std::invalid_argument("OptiX log level must be non-negative");
+    }
+
     cuda_driver_wrapper::ScopedCurrentContext current(cuda_context_);
     try
     {
         initialize_optix();
         OptixDeviceContextOptions options{};
         options.logCallbackFunction = &log_callback;
-        options.logCallbackLevel = 4;
+        options.logCallbackLevel = log_level;
         options.validationMode = enable_validation
             ? OPTIX_DEVICE_CONTEXT_VALIDATION_MODE_ALL
             : OPTIX_DEVICE_CONTEXT_VALIDATION_MODE_OFF;
