@@ -66,11 +66,19 @@ template<class Pixel>
 class ImageReadback final
 {
 public:
+    // Stream は借用する．このオブジェクトを破棄するまで，stream を move, close, 破棄しない
     ImageReadback(
         const cuda_driver_wrapper::Stream& stream,
         std::uint32_t width,
         std::uint32_t height 
     ) : storage_(stream, width, height, sizeof(Pixel), alignof(Pixel)) {}
+
+    ImageReadback(
+        const cuda_driver_wrapper::Stream&& stream,
+        std::uint32_t width,
+        std::uint32_t height 
+    ) = delete;
+
     ~ImageReadback() noexcept = default;
 
     // copy / move の禁止
@@ -93,7 +101,7 @@ public:
     void submit(
         ConstImageView<Pixel> input,
         const cuda_driver_wrapper::Event& producer,
-        const std::function<void(const cuda_driver_wrapper::Stream&)> before_copy
+        const std::function<void(const cuda_driver_wrapper::Stream&)>& before_copy
     )
     {
         storage_.submit(input.memory, input.width, input.height, input.row_stride_bytes, &producer, before_copy);
@@ -114,7 +122,7 @@ public:
     void wait() { storage_.wait(); }
 
     // 読み戻した CPU メモリを参照するための情報を返す
-    // 処理が未完了の場合は取得できない
+    // 処理が完了後に取得できる．ビューの画素はこの ImageReadback を破棄するまで有効
     [[nodiscard]] renderer::ImageView<Pixel> view()
     {
         return {storage_.width(), storage_.height(), storage_.bytes()};

@@ -51,6 +51,8 @@ public:
     SubmittedImage(const SubmittedImage&) noexcept = default;
     SubmittedImage(SubmittedImage&&) noexcept = default;
 
+    // 古い画像を other に渡して破棄する．
+    // 破棄の順番はイベント，画素，コンテキストの順番
     SubmittedImage& operator=(SubmittedImage other) noexcept
     {
         swap(other);

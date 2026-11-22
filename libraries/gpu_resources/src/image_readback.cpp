@@ -166,7 +166,7 @@ struct ImageReadbackStorage::Impl
         state = State::submitted;
         
         // ポストプロセス・画像の読み戻し完了まで待たずに抜ける
-        // 完了したかどうかは completed.is_valid() で確認
+        // 完了は is_ready() で問い合わせるか，wait() で待つ
     }
 
     // 呼び戻し処理について，現在の状態を返す

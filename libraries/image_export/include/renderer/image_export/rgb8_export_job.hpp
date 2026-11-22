@@ -13,6 +13,7 @@ namespace renderer::image_processing {class OutputTransform; }
 namespace renderer::image_export
 {
 
+// transform と stream はジョブの破棄まで有効に保つ．借用中の stream はムーブ・close しない
 class RGB8ExportJob final
 {
 public:
@@ -22,6 +23,14 @@ public:
         std::uint32_t width,
         std::uint32_t height 
     );
+    
+    RGB8ExportJob(
+        const image_processing::OutputTransform&, 
+        const cuda_driver_wrapper::Stream&&,
+        std::uint32_t,
+        std::uint32_t
+    ) = delete;
+
     ~RGB8ExportJob() noexcept;
 
     // copy / move の禁止
