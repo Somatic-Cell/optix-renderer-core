@@ -45,8 +45,6 @@ extern "C" __global__ void renderer_output_transform_rgb8(
         return;
     }
     
-    const float clip_limit = 1.0f / exposure_scale;
-
     output_row[x] = renderer::image_processing::device::encode_rgb8(input_row[x], exposure_scale);
 
 }

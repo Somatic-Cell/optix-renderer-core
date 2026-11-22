@@ -1,6 +1,6 @@
 #include "viewer_application.hpp"
 
-#include <renderer/render_session.hpp>
+#include <renderer/triangle/render_session.hpp>
 
 #include <memory>
 #include <utility>

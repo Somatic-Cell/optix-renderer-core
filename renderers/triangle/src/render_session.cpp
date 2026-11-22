@@ -1,4 +1,4 @@
-#include <renderer/render_session.hpp>
+#include <renderer/triangle/render_session.hpp>
 #include <renderer/optix_backend/device_context.hpp>
 #include <renderer/optix_backend/error.hpp>
 #include <renderer/image_types/image_layout.hpp>

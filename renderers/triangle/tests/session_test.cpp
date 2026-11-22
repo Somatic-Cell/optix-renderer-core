@@ -1,4 +1,4 @@
-#include <renderer/render_session.hpp>
+#include <renderer/triangle/render_session.hpp>
 #include <renderer/render_execution/render_execution.hpp>
 #include <cuda_driver_wrapper/device.hpp>
 #include <cuda_driver_wrapper/device_memory.hpp>
@@ -45,7 +45,7 @@ void check_headless_execution(CUdevice device)
         renderer::render_execution::RenderExecution<Session> execution(
             [=](const renderer::task_execution::TaskContext&)
             { return std::make_unique<Session>(device, module, options); }, 3);
-        // One slot must serve all three launches without any intermediate consumer.
+        // 最後にだけ画像を取得する場合，1 個のスロットで 3 回の描画を完遂できることを確かめる．
         return execution.wait_take_result();
     }();
     require(image.sequence() == 3, "Headless batch did not submit three renders");
@@ -74,8 +74,8 @@ int main()
             require(first && first->sequence() == 2, "Did not publish the newest submission");
             require(!session.take_latest_image(), "Published the same submission twice");
             require(session.statistics().render_launches == 2, "Taking an image launched work");
-            // Both launches use the same stream. Waiting on the newer Event
-            // makes the other slot available regardless of GPU timing.
+            // 2 回の描画は同じストリームに投入される．後の描画の完了を待てば，
+            // 先の描画も完了し，画像ハンドルが保持していないスロットを再利用できる．
             cdw::synchronize_event(first->completion_event());
             require(session.try_advance(), "Could not advance with a free slot");
             auto second = session.take_latest_image();
@@ -105,7 +105,7 @@ int main()
             require(!session.collect(), "Completed setup staging was not retired");
             retained = std::move(third);
         }
-        // No session/pipeline/GAS is retained. Only pixels/event/context survive.
+        // セッションを破棄した後も，画像ハンドルを通じて完了イベントと画素にアクセスできる．
         require(retained->is_ready(), "Frame event did not survive session");
         check_pixel(*retained);
         retained.reset();

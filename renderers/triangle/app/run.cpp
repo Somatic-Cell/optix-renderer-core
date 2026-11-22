@@ -3,7 +3,7 @@
 #include <renderer/image_processing/output_transform.hpp>
 #include <renderer/image_export/export_settings.hpp>
 #include <renderer/image_export/rgb8_export_job.hpp>
-#include <renderer/render_session.hpp>
+#include <renderer/triangle/render_session.hpp>
 #include <cuda_driver_wrapper/device.hpp>
 #include <cuda_driver_wrapper/error.hpp>
 #include <cuda_driver_wrapper/stream.hpp>
