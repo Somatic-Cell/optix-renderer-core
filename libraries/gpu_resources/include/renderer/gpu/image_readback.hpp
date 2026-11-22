@@ -79,6 +79,15 @@ public:
     ImageReadback(const ImageReadback&&) = delete;
     ImageReadback& operator=(ImageReadback&&) = delete;
 
+    // 画像の生成完了を待ってから，CPU への転送を開始する．
+    void submit(
+        ConstImageView<Pixel> input,
+        const cuda_driver_wrapper::Event& producer
+    )
+    {
+        submit(input, producer, {});
+    }
+
     // producer の完了待ちと転送の間に，同じストリームへ処理を投入する．
     // before_copy は submit 内で呼び出し，保持しない．
     void submit(
@@ -89,6 +98,7 @@ public:
     {
         storage_.submit(input.memory, input.width, input.height, input.row_stride_bytes, &producer, before_copy);
     }
+
     
     void submit(
         ConstImageView<Pixel> input

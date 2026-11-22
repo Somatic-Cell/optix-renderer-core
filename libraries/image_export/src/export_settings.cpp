@@ -37,22 +37,30 @@ Writer checked_writer(const ExportSettings& settings)
 
 } // namespace
 
-void validate_export_settings(const ExportSettings& settings)
+void validate_export_path(const std::filesystem::path& path)
 {
-    if(settings.path.empty())
+    if(path.empty())
     {
         throw std::invalid_argument("Export path must not be empty");
     }
 
     if(
-        settings.path.native().find(std::filesystem::path::value_type{})
+        path.native().find(std::filesystem::path::value_type{})
         != std::filesystem::path::string_type::npos
     ){
         throw std::invalid_argument("Export path must not contain NUL");
     }
 
-    static_cast<void>(select_writer(settings.format));
-    image_processing::validate_output_transform_settings(settings.transform);
+}
+
+void validate_export_settings(const ExportSettings& settings)
+{
+    static_cast<void>(checked_writer(settings));
+}
+
+void validate_export_dimensions(ImageFileFormat format, std::uint32_t width, std::uint32_t height)
+{
+    select_writer(format).validate_dimensions(width, height);
 }
 
 void validate_export_request(

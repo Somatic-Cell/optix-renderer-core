@@ -64,9 +64,9 @@ struct ExposureCodec
         value = image_processing::ExposureEv{document.get<double>()};
     }
 
-    Json write(float value) const 
+    Json write(image_processing::ExposureEv value) const 
     {
-        return value;
+        return value.value();
     }
 };
 
