@@ -1,6 +1,7 @@
 #include "verify_surface.hpp"
 
 #include <renderer/cuda_gl_display/sufrece_presenter.hpp>
+#include <renderer/image_processing/output_transform.hpp>
 #include <renderer/viewer/window.hpp>
 #include <renderer/viewer/workspace.hpp>
 #include <cuda_driver_wrapper/context.hpp>
@@ -14,7 +15,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -98,7 +98,7 @@ void run_test()
     const renderer::gpu::ConstRGB32fImageView input{
         std::as_const(pixels).view(), width, height, row_stride};
     processing::OutputTransform transform(context->handle(),
-        std::filesystem::path(RENDERER_MODULE_DIRECTORY) / "image_processing" / "output_transform.fatbin");
+        processing::output_transform_module_path(u8"" RENDERER_MODULE_DIRECTORY));
     display::SurfacePresenter presenter(context->handle(), context, width, height);
 
     renderer::viewer::WorkspacePanels panels;

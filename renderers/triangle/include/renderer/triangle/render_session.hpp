@@ -10,6 +10,9 @@
 
 namespace renderer::triangle
 {
+// モジュールのルートディレクトリから，セッションが読む OptiX IR のパスを組み立てる．
+[[nodiscard]] std::filesystem::path module_path(const std::filesystem::path& module_directory);
+
 struct Settings { std::uint32_t width = 800; std::uint32_t height = 600; };
 struct SessionOptions
 {

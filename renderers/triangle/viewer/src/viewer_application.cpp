@@ -14,7 +14,7 @@ public:
     TriangleSource(const renderer::render_viewer::LaunchEnvironment& environment,
         const renderer::task_execution::TaskContext& task)
         : session_(environment.device,
-            environment.module_directory / "triangle" / "programs.optixir",
+            renderer::triangle::module_path(environment.module_directory),
             options(environment.validation), [&](std::string text) { task.report(std::move(text)); }) {}
     renderer::render_viewer::SourceInfo info() const override
     {

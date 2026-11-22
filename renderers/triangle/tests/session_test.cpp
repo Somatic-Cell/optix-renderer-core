@@ -39,7 +39,7 @@ void check_headless_execution(CUdevice device)
     renderer::triangle::SessionOptions options;
     options.frame_slots = 1;
     options.optix_validation = true;
-    const auto module = std::filesystem::path(RENDERER_MODULE_DIRECTORY) / "triangle" / "programs.optixir";
+    const auto module = renderer::triangle::module_path(u8"" RENDERER_MODULE_DIRECTORY);
     auto image = [&]
     {
         renderer::render_execution::RenderExecution<Session> execution(
@@ -66,7 +66,7 @@ int main()
             options.frame_slots = 2;
             options.optix_validation = true;
             renderer::triangle::RenderSession session(cdw::get_device(0),
-                std::filesystem::path(RENDERER_MODULE_DIRECTORY) / "triangle" / "programs.optixir", options);
+                renderer::triangle::module_path(u8"" RENDERER_MODULE_DIRECTORY), options);
             require(!session.take_latest_image(), "Published an image before any launch");
             require(session.try_advance(), "First advance was rejected");
             require(session.try_advance(), "Advancing required taking the previous image");

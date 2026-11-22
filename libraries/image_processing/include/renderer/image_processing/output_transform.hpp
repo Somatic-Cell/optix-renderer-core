@@ -12,6 +12,11 @@
 namespace renderer::image_processing
 {
 
+// モジュールのルートディレクトリから，出力変換に使う fatbin のパスを組み立てる
+[[nodiscard]] std::filesystem::path output_transform_module_path(
+    const std::filesystem::path& module_directory
+);
+
 class OutputTransform final
 {
 public:

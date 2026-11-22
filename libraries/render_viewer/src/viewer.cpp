@@ -280,7 +280,7 @@ struct Viewer::Impl
                 if (!backend->source) throw std::runtime_error("Frame source is null");
                 task.report("Loading the shared linear/surface transform module...");
                 backend->display = std::make_shared<DisplayProgram>(backend->source->info(),
-                    environment.module_directory / "image_processing" / "output_transform.fatbin");
+                    image_processing::output_transform_module_path(environment.module_directory));
                 return backend;
             });
     }

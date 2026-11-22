@@ -277,6 +277,11 @@ struct RenderSession::Impl
     }
 };
 
+std::filesystem::path module_path(const std::filesystem::path& module_directory)
+{
+    return module_directory / u8"" RENDERER_TRIANGLE_MODULE_PATH;
+}
+
 RenderSession::RenderSession(CUdevice device, const std::filesystem::path& module,
     const SessionOptions& options, Report report)
     : impl_(std::make_unique<Impl>(device, module, options, report)) {}

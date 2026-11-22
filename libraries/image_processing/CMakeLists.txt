@@ -16,7 +16,17 @@ target_link_libraries(renderer_image_processing PUBLIC
     renderer::gpu_resources
 )
 
-renderer_add_cuda_module(renderer_output_transform_kernel device/output_transform.cu)
+renderer_add_cuda_module(
+    renderer_output_transform_kernel 
+    device/output_transform.cu
+    STAGE_AS 
+        image_processing/output_transform.fatbin
+)
 
 target_link_libraries(renderer_output_transform_kernel PRIVATE renderer::image_types)
-add_dependencies(renderer_image_processing renderer_output_transform_kernel)
+
+renderer_require_gpu_module(
+    renderer_image_processing 
+    renderer_output_transform_kernel
+    RENDERER_OUTPUT_TRANSFORM_MODULE_PATH
+)

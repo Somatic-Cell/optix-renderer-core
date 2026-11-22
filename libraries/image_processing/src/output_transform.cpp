@@ -43,6 +43,10 @@ cdw::LaunchConfig launch_for(
 
 } // namespace
 
+std::filesystem::path output_transform_module_path(const std::filesystem::path& module_directory)
+{
+    return module_directory / u8"" RENDERER_OUTPUT_TRANSFORM_MODULE_PATH;
+}
 
 OutputTransform::OutputTransform(
     CUcontext context,

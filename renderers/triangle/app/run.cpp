@@ -45,8 +45,8 @@ void render_triangle(const RenderConfig& config, CUdevice device,
 int run(const RenderConfig& config, const std::filesystem::path& module_directory)
 {
     image_export::validate_export_request(config.output, config.renderer.width, config.renderer.height);
-    const auto triangle_module = module_directory / "triangle" / "programs.optixir";
-    const auto output_module = module_directory / "image_processing" / "output_transform.fatbin";
+    const auto triangle_module = module_path(module_directory);
+    const auto output_module = image_processing::output_transform_module_path(module_directory);
     if (!std::filesystem::is_regular_file(triangle_module) || !std::filesystem::is_regular_file(output_module))
         throw std::runtime_error("GPU module file not found; build triangle_cli or specify --modules DIRECTORY");
     const auto device = app_support::initialize_cli_device(config.device, module_directory, std::cout);
