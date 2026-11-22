@@ -11,7 +11,7 @@ function(renderer_configure_gpu_module target)
         OR IS_ABSOLUTE "${module_STAGE_AS}"
         OR module_STAGE_AS MATCHES [[\\|[<>:"|?*]|(^|/)[.][.](/|$)|(^|/)[.]$|/$]]
     )
-        message(FATAL ERROR "${target}: STAGE_AS requires a path relative to modules directory")
+        message(FATAL_ERROR "${target}: STAGE_AS requires a path relative to modules directory")
     endif()
 
     set_target_properties(${target} PROPERTIES

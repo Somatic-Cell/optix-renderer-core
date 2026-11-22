@@ -58,7 +58,7 @@ if(RENDERER_BUILD_VIEWER)
 endif()
 
 add_subdirectory(libraries)
-add_subdirectory(renderers/triangle)
+add_subdirectory(renderers)
 
 message(STATUS "Renderer: CUDA architectures=${CMAKE_CUDA_ARCHITECTURES}")
 message(STATUS "Renderer: binaries=${CMAKE_BINARY_DIR}/bin/<configuration>/<application>")

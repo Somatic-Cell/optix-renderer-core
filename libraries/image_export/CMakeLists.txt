@@ -2,7 +2,7 @@ add_library(renderer_export_settings STATIC src/export_settings.cpp)
 add_library(renderer::export_settings ALIAS renderer_export_settings)
 renderer_configure_host(renderer_export_settings)
 target_include_directories(renderer_export_settings PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/settings/include"
 )
 target_link_libraries(renderer_export_settings PUBLIC
     renderer::image_processing_settings

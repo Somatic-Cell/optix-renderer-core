@@ -2,7 +2,7 @@ add_library(renderer_image_processing_settings INTERFACE)
 add_library(renderer::image_processing_settings ALIAS renderer_image_processing_settings)
 target_compile_features(renderer_image_processing_settings INTERFACE cxx_std_20)
 target_include_directories(renderer_image_processing_settings INTERFACE
-    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/settings/include"
 )
 
 add_library(renderer_image_processing STATIC src/output_transform.cpp)
