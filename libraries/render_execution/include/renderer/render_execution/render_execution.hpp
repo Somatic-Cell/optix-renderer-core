@@ -1,5 +1,6 @@
 #pragma once 
 
+#include <renderer/render_execution/render_session.hpp>
 #include <renderer/task_execution/session_worker.hpp>
 
 #include <chrono>
@@ -11,7 +12,7 @@
 namespace renderer::render_execution
 {
 
-template<class Session>
+template<RenderSession Session>
 class RenderExecution final
 {
     using OptionalImage = decltype(std::declval<Session&>().take_latest_image());

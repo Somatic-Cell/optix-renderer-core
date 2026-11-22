@@ -16,8 +16,8 @@ target_link_libraries(renderer_render_viewer
         renderer::gpu_resources 
         renderer::image_processing_settings 
         renderer::task_execution
-    PRIVATE 
         renderer::render_execution 
+    PRIVATE 
         renderer::cuda_gl_display 
         renderer::image_processing
         renderer::image_export

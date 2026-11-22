@@ -17,8 +17,8 @@ void require(bool ok, const char* message)
     if (!ok) throw std::runtime_error(message);
 }
 
-// A CPU-only stand-in for a session whose sole output slot can be leased.
-// Only the release signal and the observation of backpressure cross threads.
+// 出力スロットが一つのセッションを CPU 上で再現する．
+// スレッド間で共有するのは，スロットの空き状態と最初に投入を断った通知だけ．
 struct Gate
 {
     std::atomic_bool available{false};
@@ -27,7 +27,7 @@ struct Gate
 
 struct Image
 {
-    std::unique_ptr<int> sequence; // exercise move-only result delivery
+    std::unique_ptr<int> sequence; // ムーブ専用の結果を受け渡せるか確認する．
 };
 
 class Session
@@ -53,8 +53,7 @@ public:
     std::optional<Image> take_latest_image()
     {
         ++publications_;
-        // A 4-advance request followed by a 2-advance one: publish only at
-        // those two boundaries, never one result per UI tick or per advance.
+        // 4 回分と 2 回分の要求に対し，各要求の最後に 1 枚ずつ画像を渡す．
         if (!((sequence_ == 4 && publications_ == 1) ||
               (sequence_ == 6 && publications_ == 2)))
             throw std::runtime_error("Unexpected publication boundary");
@@ -70,6 +69,10 @@ private:
     bool notified_ = false;
 };
 
+static_assert(renderer::render_execution::RenderSessionFor<Session, Image>);
+static_assert(!renderer::render_execution::RenderSessionFor<Session, int>);
+static_assert(!renderer::render_execution::RenderSession<int>);
+
 using Execution = renderer::render_execution::RenderExecution<Session>;
 using Task = renderer::task_execution::TaskContext;
 
@@ -78,11 +81,11 @@ void check_batch()
     auto gate = std::make_shared<Gate>();
     Execution execution([gate](const Task&) { return std::make_unique<Session>(gate); }, 4);
 
-    // No UI loop, status polling, or first try_request() drives this service.
+    // UI 側から要求や状態確認を送る前に，最初の要求が実行される．
     require(gate->first_refusal.try_acquire_for(std::chrono::seconds(5)), "Initial batch never ran");
     require(!execution.try_take_result(), "Blocked request reported an image");
     require(!execution.try_request(), "A second request displaced a blocked request");
-    gate->available = true; // no callback into Execution; it must retry by itself
+    gate->available = true; // 空きを通知しなくても，ワーカーが自分で投入を再試行する．
     auto first = execution.wait_take_result();
     require(*first.sequence == 4, "Lost progress across refusal");
     require(!execution.try_take_result(), "Consumed a result twice");

@@ -1,0 +1,34 @@
+#pragma once
+
+#include <concepts>
+#include <optional>
+#include <type_traits>
+#include <utility>
+
+namespace renderer::render_execution
+{
+
+// ワーカーは結果の取り出しと終了処理で画像を move する
+// 例外は送出しない
+template<class Session, class Image>
+concept RenderSessionFor = std::move_constructible<Image> 
+    && std::is_nothrow_move_assignable_v<Image>
+    && requires(Session& session)
+{
+    // 1回分の処理を投入できれば true, 空きがなければ false を返し，呼び出し側が再試行する
+    { session.try_advance() } -> std::same_as<bool>;
+
+    // 最後に投入した画像を一度だけ取り出す．未取得の画像がなければ std::nullopt を返す
+    { session.take_least_image() } -> std::same_as<std::optional<Image>>;
+
+    // 完了済みの処理に伴うリソースを回収する．再度確認する必要があれば true を返す
+    { session.collect() } -> std::same_as<bool>;
+};
+
+// 実行中はセッションから画像の型を推論する
+template<class Session>
+concept RenderSession = RenderSessionFor<
+    Session, typename decltype(std::declval<Session&>().take_latest_image())::value_type
+>;
+
+} // namespace renderer::render_execution
