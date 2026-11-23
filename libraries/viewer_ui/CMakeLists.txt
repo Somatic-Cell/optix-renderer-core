@@ -3,7 +3,7 @@ add_library(renderer_viewer_ui STATIC
     src/workspace.cpp
 )
 
-add_library(renderer::viewer ALIAS renderer_viewer_ui)
+add_library(renderer::viewer_ui ALIAS renderer_viewer_ui)
 
 renderer_configure_host(renderer_viewer_ui)
 

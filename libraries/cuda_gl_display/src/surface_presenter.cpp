@@ -108,14 +108,14 @@ struct SurfacePresenter::Impl
         std::uint32_t width,
         std::uint32_t height
     ) : 
-    context_lifetime_(std::move(lifetime)),
+    context_lifetime_(std::move(context_lifetime)),
     context_(context),
     width_(width),
     height_(height),
     stream_(context),
     produced_(context)
     {
-        if(!context_context_lifetime_ || width == 0 || height == 0)
+        if(!context_lifetime_ || width == 0 || height == 0)
         {
             throw std::invalid_argument("Surface presenter requires an owned context and positive dimensions");
         }
