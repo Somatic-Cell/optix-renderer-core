@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -23,6 +24,12 @@ namespace renderer::triangle
     {
         SessionOptions options;
         options.optix_validation = environment.validation;
+
+        if(options.frame_slots < 2)
+        {
+            throw std::invalid_argument("Triangle viewer requires at least two frame slots");
+        }
+        
         return std::make_unique<render_viewer::SessionFrameSource<RenderSession>>(
             environment.device, module_path(environment.module_directory), options,
             [&task](std::string message) 

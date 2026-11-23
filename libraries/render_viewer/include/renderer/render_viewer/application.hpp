@@ -19,16 +19,17 @@ struct SourceInfo
     std::shared_ptr<const void> context_lifetime;
 };
 
-// ビューワのワーカースレッドが生成，操作，破棄する．取得した画像ハンドルは表示側に渡せる
+// このクラスはビューワのワーカースレッドが生成，操作，破棄する．
+// 取得した画像ハンドルは,スレッドに渡して保持できる
 class FrameSource
 {
 public:
     virtual ~FrameSource() noexcept = default;
     [[nodiscard]] virtual SourceInfo info() const = 0;
-    // 1 回の描画を投入したら true, 空きがなく体裁思考が必要なら false
+    // 1 回の描画を投入したら true, 空きがなく再試行が必要なら false
     // GPU の完了は待たない
     [[nodiscard]] virtual bool try_advance() = 0;
-    // 細心の未取得の画像を一度だけ渡す．未取得の画像がなければ空のまま返す
+    // 最新の未取得の画像を一度だけ渡す．未取得の画像がなければ空のまま返す
     [[nodiscard]] virtual std::optional<gpu::SubmittedRGB32fImage> take_latest_image() = 0;
     virtual task_execution::MaintenanceStatus collect() = 0;
 };
