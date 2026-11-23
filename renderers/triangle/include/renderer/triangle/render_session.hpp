@@ -10,6 +10,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <stop_token>
 #include <string>
 
 namespace renderer::triangle
@@ -57,6 +58,9 @@ public:
     // true: 1 回の描画を投入した（GPU 完了ではない）．
     // false: 空きスロットがなく未投入．未取得の画像もそのまま残る．
     [[nodiscard]] bool try_advance();
+
+    // スロットの再利用を待つ．停止要求が届けば，空きを待たずに呼び出し元へ戻る．
+    void wait_for_frame_slot(std::stop_token stop);
 
     // 最新の未取得画像を 1 回だけ返す．描画の投入や GPU の完了待ちは行わない．
     // 取得前に複数回の投入が成功した場合，最後の画像だけを取得できる．

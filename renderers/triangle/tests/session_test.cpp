@@ -4,12 +4,15 @@
 #include <cuda_driver_wrapper/device_memory.hpp>
 #include <cuda_driver_wrapper/event.hpp>
 #include <array>
+#include <chrono>
 #include <cmath>
+#include <future>
 #include <iostream>
 #include <memory>
 #include <optional>
 #include <span>
 #include <stdexcept>
+#include <stop_token>
 #ifndef RENDERER_MODULE_DIRECTORY
 #error RENDERER_MODULE_DIRECTORY is required
 #endif
@@ -88,7 +91,23 @@ int main()
             auto consumer_lease = first;
             first.reset();
             require(!session.try_advance(), "Secondary consumer lease was ignored");
+
+            std::stop_source stop;
+            stop.request_stop();
+            session.wait_for_frame_slot(stop.get_token());
+            require(!session.try_advance(), "Stopping a wait released a leased slot");
+
+            // コピーを保持している間は待機が続き，最後のコピーを手放すと再開する．
+            std::stop_source timeout;
+            auto waiting = std::async(std::launch::async,
+                [&] { session.wait_for_frame_slot(timeout.get_token()); });
+            const auto before_release = waiting.wait_for(std::chrono::milliseconds(20));
             consumer_lease.reset();
+            const auto after_release = waiting.wait_for(std::chrono::seconds(5));
+            if (after_release != std::future_status::ready) timeout.request_stop();
+            waiting.get();
+            require(before_release == std::future_status::timeout, "Wait returned while both slots were held");
+            require(after_release == std::future_status::ready, "Releasing the last copy did not wake the session");
             require(session.try_advance(), "Retry failed after releasing a slot");
             auto third = session.take_latest_image();
             require(third && third->sequence() == 4, "Retry produced the wrong submission");

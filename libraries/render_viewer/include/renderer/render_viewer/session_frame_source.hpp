@@ -5,6 +5,7 @@
 
 #include <concepts>
 #include <optional>
+#include <stop_token>
 #include <utility>
 
 namespace renderer::render_viewer
@@ -30,7 +31,15 @@ public:
         return {session_.context(), session_.context_lifetime()};
     }
 
-    [[nodiscard]] bool try_advance() override { return session_.try_advance(); }
+    [[nodiscard]] bool try_advance() override 
+    { 
+        return session_.try_advance(); 
+    }
+
+    void wait_for_frame_slot(std::stop_token stop) override {
+        session_.wait_for_frame_slot(stop);
+    }
+
     [[nodiscard]] std::optional<gpu::SubmittedRGB32fImage> take_latest_image() override
     {
         return session_.take_latest_image();

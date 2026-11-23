@@ -16,12 +16,16 @@
 #include <optix_stubs.h>
 #include <vector_types.h>
 #include <array>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <exception>
 #include <limits>
+#include <mutex>
 #include <span>
 #include <stdexcept>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -57,20 +61,121 @@ struct FrameStorage
     std::shared_ptr<cdw::RetainPrimaryContext> context_;
     cdw::DeviceBuffer pixels_;
     cdw::Event completed_;
-    bool recorded_ = false; // accessed only by session's CPU owner
+    std::uint64_t sequence_ = 0; // 0 は未投入．セッションを操作するスレッドだけが読み書きする．
     FrameStorage(std::shared_ptr<cdw::RetainPrimaryContext> context, std::size_t bytes)
         : context_(std::move(context)), pixels_(context_->handle(), bytes),
           completed_(context_->handle(), static_cast<unsigned int>(CU_EVENT_DISABLE_TIMING) | static_cast<unsigned int>(CU_EVENT_BLOCKING_SYNC)) {}
+
+    bool gpu_finished() const { return sequence_ == 0 || cdw::is_event_ready(completed_); }
 };
-struct Slot
+struct FrameSlot
 {
     std::shared_ptr<FrameStorage> frame;
     cdw::DeviceBuffer parameters;
     cdw::PinnedHostBuffer upload;
-    Slot(const std::shared_ptr<cdw::RetainPrimaryContext>& context, std::size_t bytes)
+    FrameSlot(const std::shared_ptr<cdw::RetainPrimaryContext>& context, std::size_t bytes)
         : frame(std::make_shared<FrameStorage>(context, bytes)),
           parameters(context->handle(), sizeof(LaunchParams)),
           upload(context->handle(), sizeof(LaunchParams)) {}
+};
+
+class FrameSlotWaiter
+{
+public:
+    void check_error()
+    {
+        if (!worker_.joinable()) return;
+        std::lock_guard lock(mutex_);
+        if (error_) std::rethrow_exception(error_);
+    }
+
+    void wait(std::span<const FrameSlot> slots, std::stop_token stop)
+    {
+        std::unique_lock lock(mutex_);
+        changed_.wait(lock, stop, [&]
+        {
+            if (error_) std::rethrow_exception(error_);
+            if (stop.stop_requested()) return true;
+
+            const FrameSlot* oldest = nullptr;
+            bool has_unleased_slot = false;
+            for (const auto& slot : slots)
+            {
+                const auto& frame = *slot.frame;
+                const bool unleased = slot.frame.use_count() == 1;
+                if (unleased) has_unleased_slot = true;
+                if (frame.gpu_finished())
+                {
+                    if (unleased) return true;
+                }
+                else if (!oldest || frame.sequence_ < oldest->frame->sequence_)
+                {
+                    oldest = &slot;
+                }
+            }
+
+            // 同じストリームでは投入順に完了する．待機中に別の画像が返却される場合もあるので，
+            // GPU がまだ使用中のスロットのうち，一番早く完了するイベントを監視する．
+            if (has_unleased_slot && !watching_ && oldest)
+            {
+                if (!worker_.joinable())
+                    worker_ = std::jthread([this](std::stop_token done) { watch_events(done); });
+                watching_ = oldest->frame;
+                requested_.notify_one();
+            }
+            return false;
+        });
+    }
+
+    void release(std::shared_ptr<FrameStorage>& frame)
+    {
+        {
+            std::lock_guard lock(mutex_);
+            frame.reset();
+        }
+        changed_.notify_one();
+    }
+
+private:
+    void watch_events(std::stop_token stop)
+    {
+        std::unique_lock lock(mutex_);
+        while (requested_.wait(lock, stop, [this] { return watching_ != nullptr; }))
+        {
+            // CUDA のイベント待ちには停止トークンを渡せない．このスレッドが GPU を待つ間も，
+            // 描画ワーカーは画像の返却や停止要求で起床できる．
+            const auto& event = watching_->completed_;
+            lock.unlock();
+            std::exception_ptr error;
+            try { cdw::synchronize_event(event); }
+            catch (...) { error = std::current_exception(); }
+            lock.lock();
+            error_ = error;
+            watching_.reset();
+            changed_.notify_one();
+            if (error_) return;
+        }
+    }
+
+    std::mutex mutex_;
+    std::condition_variable_any changed_;
+    std::condition_variable_any requested_;
+    // 監視中に同じイベントが次の描画で再記録されないように，スロットを保持する．
+    std::shared_ptr<FrameStorage> watching_;
+    std::exception_ptr error_;
+    std::jthread worker_;
+};
+
+// 画像ハンドルのコピーはこの所有権を共有する．最後のコピーが破棄されると，待機側に通知する．
+struct FrameLease
+{
+    std::shared_ptr<FrameStorage> frame;
+    std::weak_ptr<FrameSlotWaiter> waiter;
+
+    ~FrameLease()
+    {
+        if (auto owner = waiter.lock()) owner->release(frame);
+    }
 };
 }
 
@@ -88,7 +193,8 @@ struct RenderSession::Impl
     cdw::PinnedHostBuffer vertex_upload_;
     cdw::PinnedHostBuffer sbt_upload_;
     cdw::Event initialized_;
-    std::vector<Slot> slots_;
+    std::vector<FrameSlot> slots_;
+    std::shared_ptr<FrameSlotWaiter> frame_slot_waiter_ = std::make_shared<FrameSlotWaiter>();
     std::optional<std::size_t> unpublished_slot_; // セッション所有者だけが操作する
     OptixShaderBindingTable sbt_{};
     SessionStatistics statistics_{};
@@ -222,9 +328,11 @@ struct RenderSession::Impl
     }
     task_execution::MaintenanceStatus collect()
     {
-        if (setup_retired_) return task_execution::MaintenanceStatus::idle;
         try
         {
+            // 待機をキャンセルした後に監視スレッドが検出したエラーも，ここで呼び出し元に返す．
+            frame_slot_waiter_->check_error();
+            if (setup_retired_) return task_execution::MaintenanceStatus::idle;
             if (!cdw::is_event_ready(initialized_)) return task_execution::MaintenanceStatus::pending;
             // Called by the execution owner. No frame lease retains these resources.
             scratch_.close();
@@ -255,7 +363,7 @@ struct RenderSession::Impl
             if (slot.frame.use_count() != 1) continue; // held by ANY consumer
             try
             {
-                if (slot.frame->recorded_ && !cdw::is_event_ready(slot.frame->completed_)) continue;
+                if (!slot.frame->gpu_finished()) continue;
                 pending_ = true;
                 cdw::ScopedCurrentContext current(cuda_->handle());
                 if (options_.diagnose_unwritten_pixels)
@@ -269,10 +377,9 @@ struct RenderSession::Impl
                     slot.parameters.device_ptr(), slot.parameters.size_bytes(), &sbt_,
                     options_.extent.width, options_.extent.height, 1), "optixLaunch");
                 cdw::record_event(slot.frame->completed_, stream_);
-                slot.frame->recorded_ = true;
                 last_completion_ = &slot.frame->completed_;
                 current.restore();
-                ++statistics_.render_launches;
+                slot.frame->sequence_ = ++statistics_.render_launches;
                 unpublished_slot_ = index;
                 return true;
             }
@@ -280,6 +387,14 @@ struct RenderSession::Impl
         }
         return false;
     }
+
+    void wait_for_frame_slot(std::stop_token stop)
+    {
+        if (failed_) throw std::logic_error("RenderSession failed; reconstruct it before use");
+        try { frame_slot_waiter_->wait(slots_, stop); }
+        catch (...) { failed_ = true; throw; }
+    }
+
     std::optional<gpu::SubmittedRGB32fImage> take_latest_image()
     {
         if (failed_) throw std::logic_error("RenderSession failed; reconstruct it before use");
@@ -289,9 +404,10 @@ struct RenderSession::Impl
         const gpu::ConstDeviceRGB32fImageView image{std::as_const(frame->pixels_).view(),
             options_.extent.width, options_.extent.height,
             checked_row_bytes(options_.extent.width, sizeof(RGB32f))};
-        std::optional<gpu::SubmittedRGB32fImage> result(std::in_place, image, frame,
-            std::shared_ptr<const cdw::Event>(frame, &frame->completed_),
-            cuda_, statistics_.render_launches);
+        auto lease = std::make_shared<FrameLease>(frame, frame_slot_waiter_);
+        std::optional<gpu::SubmittedRGB32fImage> result(std::in_place, image, lease,
+            std::shared_ptr<const cdw::Event>(lease, &frame->completed_),
+            cuda_, frame->sequence_);
         unpublished_slot_.reset(); // ハンドルの構築に成功してから消費する
         return result;
     }
@@ -307,6 +423,7 @@ RenderSession::RenderSession(CUdevice device, const std::filesystem::path& modul
     : impl_(std::make_unique<Impl>(device, module, options, report)) {}
 RenderSession::~RenderSession() noexcept = default;
 bool RenderSession::try_advance() { return impl_->try_advance(); }
+void RenderSession::wait_for_frame_slot(std::stop_token stop) { impl_->wait_for_frame_slot(stop); }
 std::optional<gpu::SubmittedRGB32fImage> RenderSession::take_latest_image()
 { return impl_->take_latest_image(); }
 task_execution::MaintenanceStatus RenderSession::collect() { return impl_->collect(); }

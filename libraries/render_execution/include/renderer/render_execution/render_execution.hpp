@@ -3,10 +3,8 @@
 #include <renderer/render_execution/render_session.hpp>
 #include <renderer/task_execution/session_worker.hpp>
 
-#include <chrono>
 #include <cstddef>
 #include <stdexcept>
-#include <thread>
 #include <utility>
 
 namespace renderer::render_execution
@@ -60,7 +58,7 @@ private:
                     --remaining;
                 }
                 else{
-                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                    session.wait_for_frame_slot(task.stop_token());
                 }
             }
             auto image = session.take_latest_image();

@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <stop_token>
 #include <string>
 
 namespace renderer::render_viewer
@@ -26,9 +27,14 @@ class FrameSource
 public:
     virtual ~FrameSource() noexcept = default;
     [[nodiscard]] virtual SourceInfo info() const = 0;
+
     // 1 回の描画を投入したら true, 空きがなく再試行が必要なら false
     // GPU の完了は待たない
     [[nodiscard]] virtual bool try_advance() = 0;
+
+    // 空きがないときにワーカーが呼ぶ．停止のリクエストが届けば待機から戻る
+    virtual void wait_for_frame_slot(std::stop_token stop) = 0;
+    
     // 最新の未取得の画像を一度だけ渡す．未取得の画像がなければ空のまま返す
     [[nodiscard]] virtual std::optional<gpu::SubmittedRGB32fImage> take_latest_image() = 0;
     virtual task_execution::MaintenanceStatus collect() = 0;

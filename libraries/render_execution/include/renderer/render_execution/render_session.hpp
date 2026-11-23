@@ -4,6 +4,7 @@
 
 #include <concepts>
 #include <optional>
+#include <stop_token>
 #include <type_traits>
 #include <utility>
 
@@ -15,10 +16,13 @@ namespace renderer::render_execution
 template<class Session, class Image>
 concept RenderSessionFor = std::move_constructible<Image> 
     && std::is_nothrow_move_constructible_v<Image>
-    && requires(Session& session)
+    && requires(Session& session, std::stop_token stop)
 {
     // 1回分の処理を投入できれば true, 空きがなければ false を返し，呼び出し側が再試行する
     { session.try_advance() } -> std::same_as<bool>;
+
+    // 空きがないとき，ワーカーはここで待ち，停止要求がなければ，try_advance() を再試行
+    { session.wait_for_frame_slot(stop) } -> std::same_as<void>;
 
     // 最後に投入した画像を一度だけ取り出す．未取得の画像がなければ std::nullopt を返す
     { session.take_latest_image() } -> std::same_as<std::optional<Image>>;

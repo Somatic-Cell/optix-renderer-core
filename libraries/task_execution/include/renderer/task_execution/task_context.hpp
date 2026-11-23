@@ -45,6 +45,10 @@ public:
         return stop_.stop_requested();
     }
 
+    [[nodiscard]] std::stop_token stop_token() const noexcept{
+        return stop_;
+    }
+
     // 停止のリクエストが発生していれば例外を投げる 
     // (処理を中断する)
     void cancellation_point() const 
