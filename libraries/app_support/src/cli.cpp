@@ -10,6 +10,12 @@ namespace renderer::app_support
 namespace 
 {
 
+enum class Mode
+{
+    batch,
+    viewer
+};
+
 struct Options
 {
     std::filesystem::path config_path;
@@ -19,7 +25,8 @@ struct Options
 
 Options parse_options(
     int argc, 
-    const std::filesystem::path::value_type* const* argv
+    const std::filesystem::path::value_type* const* argv,
+    Mode mode
 )
 {
     Options options;
@@ -36,9 +43,8 @@ Options parse_options(
             continue;
         }
 
-        // --config または --module を読む
-        // フィールドを探す
-        const bool is_config = argument == "--config";
+        // バッチだけが --config を受け付ける
+        const bool is_config = Mode::batch && argument == "--config";
         
         // 想定外の引数
         if(!is_config && argument != "--modules")
@@ -47,10 +53,10 @@ Options parse_options(
         }
 
         // フィールドに何が設定されたかを読む
-        // --config または --module の後ろには値があるはず
+        // --config または --modules の後ろには値があるはず
         if(++i == argc)
         {
-            throw std::invalid_argument("Missing value for --config or --modules");
+            throw std::invalid_argument(is_config ? "Missing value for --config" : "Missing value for --modules");
         }
 
         // フィールドに設定された値
@@ -59,6 +65,16 @@ Options parse_options(
         if(value.empty())
         {
             throw std::invalid_argument("Command-line paths must not be empty");
+        }
+
+        if(
+            value == "--config" 
+            || value == "--modules"
+            || value == "--help"
+            || value == "-h"
+        )
+        {
+            throw std::invalid_argument(is_config ? "Missing value for --config" : "Missing value for --modules");
         }
 
         auto& destination = is_config ? options.config_path : options.module_directory;
@@ -74,35 +90,44 @@ Options parse_options(
         destination = value;
 
     }
-    // config は必須
-    if (!options.help && options.config_path.empty())
+    // バッチではヘルプの表示時を除いて --config が必須
+    if (mode == Mode::batch && !options.help && options.config_path.empty())
     {
-        throw std::invalid_argument("--config is requrired; use --help");
+        throw std::invalid_argument("--config is required; use --help");
     }
     return options;
 }
 
 } // namespace 
 
-int run_cli(
+template<class Action>
+int run(
     int argc, 
     const::std::filesystem::path::value_type* const* argv,
     std::string_view executable_name,
     std::u8string_view default_module_directory,
-    CliAction action
+    Mode mode,
+    Action action
 )
 {
     try
     {
-        const auto options = parse_options(argc, argv);
+        const auto options = parse_options(argc, argv, mode);
 
         // help のメッセージ
         if(options.help)
         {
-            std::cout   << "Usage: " << executable_name << " --config FILE [--modules DIRECTORY]\n"
-                        << "Json output paths are relative to the configuration file.\n"
+            std::cout   << "Usage: " << executable_name; 
+            
+            if(mode == Mode::batch) 
+                std::cout << "--config FILE";
+            
+            std::cout   << "[--modules DIRECTORY] [-h|--help]\n"
                         << "--modules overrides the module directory selected by CMake.\n"
                         << "Command-line paths are relative to the working directory.\n";
+            if(mode == Mode::batch) 
+                std::cout << "Json output paths are relative to the configuration file.\n"
+
             return EXIT_SUCCESS;
         }
 
@@ -112,10 +137,36 @@ int run_cli(
     }
     catch(const std::exception& error)
     {
-        std::cerr << executable_name << ": " << error.what() << "\n";
-        return EXIT_FAILURE;
+        std::cerr << executable_name << ": " << error.what() << '\n';
     }
+    catch(...)
+    {
+        std::cerr << executable_name << ": unknown failure\n";        
+    }
+    return EXIT_FAILURE;
+} // namespace
 
+int run_cli(
+    int argc, 
+    const std::filesystem::path::value_type* const* argv,
+    std::string_view executable_name, 
+    std::u8string_view default_module_directory,
+    CliAction action
+)
+{
+    return run(argc, argv, executable_name, default_module_directory, Mode::batch, action);
 }
+
+int run_viewer_cli(
+    int argc, 
+    const std::filesystem::path::value_type* const* argv,
+    std::string_view executable_name, 
+    std::u8string_view default_module_directory,
+    ViewerAction action
+)
+{
+    return run(argc, argv, executable_name, default_module_directory, Mode::viewer,
+               [action](const std::filesystem::path&, const std::filesystem::path& directory)
+               { return action(directory); });
 
 } // namespace renderer::app_support

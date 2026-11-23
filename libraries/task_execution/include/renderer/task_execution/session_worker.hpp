@@ -1,5 +1,6 @@
 #pragma once
 
+#include <renderer/task_execution/maintenance_status.hpp>
 #include <renderer/task_execution/task_context.hpp>
 
 #include <chrono>
@@ -46,6 +47,7 @@ struct WorkerStatus
 
 // State: ワーカースレッドで保持，再利用する内部状態
 // Result: タスクの結果として外部へ公開する情報
+// State の構築，操作，破棄はワーカースレッドが担当する
 template<class State, class Result>
 class SessionWorker final
 {
@@ -58,7 +60,7 @@ public:
     using Operation = std::function<Result(State&, const TaskContext&)>;
 
     // State に対する処理 (GPU 上の処理の完了確認など) を行う
-    using Maintenance = std::function<bool(State&)>;
+    using Maintenance = std::function<MaintenanceStatus(State&)>;
 
     // スレッドの生成
     explicit SessionWorker(
@@ -321,13 +323,13 @@ private:
 
             while (!stop.stop_requested())
             {
-                const bool poll_again = maintenance && maintenance(*state);
+                const auto maintenance_status = maintenance ? maintenance(*state) : MaintenanceStatus::idle;
                 std::optional<Work> work;
 
                 {
                     std::unique_lock lock(mutex_);
                     const auto has_work = [this] { return pending_.has_value(); };
-                    if (poll_again)
+                    if (maintenance_status == MaintenanceStatus::pending)
                     {
                         wake_.wait_for(lock, stop, std::chrono::microseconds(2), has_work);
                     } 

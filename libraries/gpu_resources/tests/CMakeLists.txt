@@ -1,11 +1,9 @@
-add_executable(renderer_image_readback_test image_readback_test.cpp)
-renderer_configure_host(renderer_image_readback_test)
-target_link_libraries(renderer_image_readback_test PRIVATE renderer::gpu_resources)
-add_test(NAME gpu_image_readback COMMAND renderer_image_readback_test)
-set_tests_properties(gpu_image_readback PROPERTIES LABELS "gpu;readback" TIMEOUT 120)
+renderer_add_test(gpu_image_readback
+    SOURCES image_readback_test.cpp
+    LINK renderer::gpu_resources
+    LABELS gpu readback)
 
-add_executable(renderer_submitted_image_test submitted_image_test.cpp)
-renderer_configure_host(renderer_submitted_image_test)
-target_link_libraries(renderer_submitted_image_test PRIVATE renderer::gpu_resources)
-add_test(NAME gpu_submitted_image COMMAND renderer_submitted_image_test)
-set_tests_properties(gpu_submitted_image PROPERTIES LABELS "gpu;image;lifetime" TIMEOUT 120)
+renderer_add_test(gpu_submitted_image
+    SOURCES submitted_image_test.cpp
+    LINK renderer::gpu_resources
+    LABELS gpu image lifetime)

@@ -52,7 +52,7 @@ void validate_png_dimensions(std::uint32_t width, std::uint32_t height)
     // 16:              IDAT の CRC 4 byte と終端の IEND チャンク 12 byte
     const std::uint64_t max_png_bytes = 58 + 6 + filtered_bytes + block_count * 5 + 16;
 
-    constexpr auto max_offset = std::numeric_limits<std::uint32_t>::max();
+    constexpr auto max_offset = (std::numeric_limits<std::uint32_t>::max)();
     if(filtered_bytes + 65534 > max_offset || max_png_bytes > max_offset)
     {
         throw std::length_error("Image exceeds fpng's 32-bit buffer limits");
@@ -76,7 +76,7 @@ std::vector<std::uint8_t> encode_png(RGB8ImageView image)
 
     // ディスクリプタの画素数と実際に格納されている画素数が不整合でないかどうかを確認
     const std::uint64_t pixel_count = static_cast<std::uint64_t>(image.width) * image.height;
-    if(pixel_count > std::numeric_limits<std::size_t>::max() / sizeof(RGB8)
+    if(pixel_count > (std::numeric_limits<std::size_t>::max)() / sizeof(RGB8)
         || image.bytes.size() != static_cast<std::size_t>(pixel_count) * sizeof(RGB8))
     {
         throw std::invalid_argument("sRGB image dimensions do not match its pixel count");
@@ -99,7 +99,7 @@ std::vector<std::uint8_t> encode_png(RGB8ImageView image)
         throw std::runtime_error("fpng failed to encode the PNG image");
     }
 
-    if(encoded.size() > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max()))
+    if(encoded.size() > static_cast<std::size_t>((std::numeric_limits<std::streamsize>::max)()))
     {
         throw std::length_error("Encoded PNG is too large for a single file write");
     }

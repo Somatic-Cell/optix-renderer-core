@@ -188,7 +188,7 @@ int main()
     }
     catch (const std::exception& error)
     {
-        std::cerr << "cuda_gl_surface_test: " << error.what() << '\n';
+        std::cerr << "renderer_cuda_gl_surface_test: " << error.what() << '\n';
         return EXIT_FAILURE;
     }
 }

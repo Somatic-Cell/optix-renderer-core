@@ -27,7 +27,7 @@ public:
     OutputTransform(const OutputTransform&) = delete;
     OutputTransform& operator=(const OutputTransform&) = delete;
     OutputTransform(OutputTransform&&) = delete;
-    OutputTransform& operator=(const OutputTransform&&) = delete;
+    OutputTransform& operator=(OutputTransform&&) = delete;
 
     [[nodiscard]] CUcontext context() const noexcept { return module_.context(); }
 

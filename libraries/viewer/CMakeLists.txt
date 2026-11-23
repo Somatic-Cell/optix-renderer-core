@@ -23,6 +23,6 @@ else()
     target_sources(renderer_viewer PRIVATE src/platform/window_theme_other.cpp)
 endif()
 
-if(BUILD_TESTING AND RENDERER_ENABLE_VIEWER_TESTS)
+if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()

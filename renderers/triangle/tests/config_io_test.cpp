@@ -67,7 +67,7 @@ int main(int argc, char** argv)
     try
     {
         if (argc != 2)
-            throw std::invalid_argument("Usage: triangle_config_io_test TEST_DIRECTORY");
+            throw std::invalid_argument("Usage: renderer_triangle_config_io_test TEST_DIRECTORY");
 
         test("default document round trip", []
         {

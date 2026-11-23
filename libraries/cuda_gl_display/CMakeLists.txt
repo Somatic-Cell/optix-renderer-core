@@ -7,6 +7,6 @@ target_link_libraries(renderer_cuda_gl_display
     PRIVATE glfw OpenGL::GL
 )
 
-if(BUILD_TESTING AND RENDERER_ENABLE_VIEWER_TESTS AND RENDERER_ENABLE_GPU_TESTS)
+if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()

@@ -17,6 +17,7 @@ struct WindowOptions
     bool check_gl_errors = false;
 };
 
+// GLFW のウィンドウはメインスレッドで生成し，同じスレッドで操作・破棄する
 class Window final{
 public:
     explicit Window(const WindowOptions& options = {});
@@ -28,6 +29,8 @@ public:
     Window(Window&&) = delete;
     Window& operator=(Window&&) = delete;
     
+    // ウィンドウを持つ上位の UI も，自分の状態に触れる前に同じスレッドの制約を検査できる
+    void require_owner_thread() const;
     [[nodiscard]] bool should_close() const;
     void request_close();
 

@@ -186,18 +186,26 @@ struct SurfacePresenter::Impl
         catch (...)
         {
             // コンストラクタの内部で例外が発生した場合はデストラクタが呼ばれないので，明示的に開放
-            cleanup();
+            close_noexcept();
             throw;
         }
     }
 
 
-    ~Impl() noexcept { cleanup(); }
+    ~Impl() noexcept { close_noexcept(); }
 
-    // スレッド ID と捜査対象の OpenGL のコンテキストがそれぞれ一致することを確認
+    void require_owner_thread() const
+    {
+        if(thread_ != std::this_thread::get_id())
+        {
+            throw std::logic_error("SurfacePresenter requires its creating GL thread");
+        }
+    }
+
     void require_owner() const 
     {
-        if(thread_ != std::this_thread::get_id() || glfwGetCurrentContext() != window_)
+        require_owner_thread();
+        if(glfwGetCurrentContext() != window_)
         {
             throw std::logic_error("SurfacePresenter requires its creating GL thread / context");
         }
@@ -206,7 +214,7 @@ struct SurfacePresenter::Impl
         // 処理を続けることを禁止し，失敗したオブジェクトを破棄して作り直す
         if(failed_)
         {
-            throw std::logic_error("SurfacePresenter failed; reconstruct before use");
+            throw std::logic_error("SurfacePresenter failed; reconstruct it before use");
         }
     }
 
@@ -220,7 +228,7 @@ struct SurfacePresenter::Impl
             return true;
         }
 
-        // glClientWaitAsync() を呼ぶ
+        // glClientWaitSync() を呼ぶ
         const auto status = gl_.poll(
             slot.retired,   // 確認するフェンス
             0,              // 特別なフラッシュ動作を指定しない
@@ -233,6 +241,7 @@ struct SurfacePresenter::Impl
         // 異常な完了状態
         if(status != detail::already_signaled && status != detail::condition_satisfied)
         {
+            failed_ = true;
             throw std::runtime_error("glClientWaitSync failed");
         }
 
@@ -383,7 +392,7 @@ struct SurfacePresenter::Impl
 
             front_ = pending_;      // pending だったものを，今度は OpenGL の front として使う
             pending_ = -1;          // 
-            // 保持していた CUDA モジュールをリリースする
+            // producer と，その呼び出しに必要だったリソースをリリースする
             producer_ = {};
 
             // 公開の完了を報告
@@ -399,7 +408,7 @@ struct SurfacePresenter::Impl
 
     // リソースの解放
     // GPU がそれぞれのリソースを使い終えていることを保証しつつ，順番にリリースする
-    void cleanup() noexcept
+    void close_noexcept() noexcept
     {
         // 破棄するスレッドの検証
         if(thread_ != std::this_thread::get_id() || glfwGetCurrentContext() != window_)
@@ -476,7 +485,7 @@ struct SurfacePresenter::Impl
         
         catch(...)
         {
-            std::fprintf(stderr, "[surface cleanup] unknown failure");
+            std::fputs("[surface cleanup] unknown failure\n", stderr);
         }
 
         for (auto& slot : slots_)
@@ -541,7 +550,11 @@ unsigned int SurfacePresenter::texture_name() const
 
 std::uint32_t SurfacePresenter::width() const noexcept {return impl_->width_; }
 std::uint32_t SurfacePresenter::height() const noexcept {return impl_->height_; }
-PresentationStatistics SurfacePresenter::statistics() const noexcept {return impl_->statistics_; }
+PresentationStatistics SurfacePresenter::statistics() const 
+{
+    impl_->require_owner_thread();
+    return impl_->statistics_; 
+}
 
 } // namespace renderer::cuda_gl_display
 

@@ -35,7 +35,7 @@ public:
     {
         return session_.take_latest_image();
     }
-    bool collect() override { return session_.collect(); }
+    [[nodiscard]] task_execution::MaintenanceStatus collect() override { return session_.collect(); }
 
 private:
     S session_;

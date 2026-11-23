@@ -94,7 +94,7 @@ struct RenderSession::Impl
     SessionStatistics statistics_{};
     const cdw::Event* last_completion_ = nullptr;
     bool pending_ = false;
-    bool poisoned_ = false;
+    bool failed_ = false;
     bool setup_retired_ = false;
 
     Impl(CUdevice device, const std::filesystem::path& module,
@@ -189,7 +189,7 @@ struct RenderSession::Impl
         {
             // Constructor failure has no Impl destructor. Drain BEFORE members
             // and upload memory are destroyed, even if restore()/record failed.
-            poisoned_ = true;
+            failed_ = true;
             drain_noexcept();
             throw;
         }
@@ -198,11 +198,20 @@ struct RenderSession::Impl
     void wait_idle()
     {
         if (!pending_) return;
-        if (poisoned_ || !last_completion_)
-            cdw::synchronize_stream(stream_); // exceptional partial submission
-        else
-            cdw::synchronize_event(*last_completion_); // BLOCKING_SYNC event
-        pending_ = false;
+        try
+        {
+            if (failed_ || !last_completion_)
+                cdw::synchronize_stream(stream_); // exceptional partial submission
+            else
+                cdw::synchronize_event(*last_completion_); // BLOCKING_SYNC event
+            pending_ = false;    
+        }
+        catch(...)
+        {
+            failed_ = true;
+            throw;
+        }
+        
     }
     void drain_noexcept() noexcept
     {
@@ -211,21 +220,32 @@ struct RenderSession::Impl
         { std::fprintf(stderr, "[triangle session cleanup] %s\n", error.what()); }
         catch (...) { std::fputs("[triangle session cleanup] unknown failure\n", stderr); }
     }
-    bool collect()
+    task_execution::MaintenanceStatus collect()
     {
-        if (setup_retired_) return false;
-        if (!cdw::is_event_ready(initialized_)) return true;
-        // Called by the execution owner. No frame lease retains these resources.
-        scratch_.close();
-        vertex_upload_.close();
-        sbt_upload_.close();
-        for (auto& slot : slots_) slot.upload.close();
-        setup_retired_ = true;
-        return false;
+        if (setup_retired_) return task_execution::MaintenanceStatus::idle;
+        try
+        {
+            if (!cdw::is_event_ready(initialized_)) return task_execution::MaintenanceStatus::pending;
+            // Called by the execution owner. No frame lease retains these resources.
+            scratch_.close();
+            vertex_upload_.close();
+            sbt_upload_.close();
+            for (auto& slot : slots_) slot.upload.close();
+            setup_retired_ = true;
+            return task_execution::MaintenanceStatus::idle;
+        }
+        catch(...)
+        {
+            failed_ = true;
+            throw;
+        }
+        
     }
+
     bool try_advance()
     {
-        if (poisoned_) throw std::logic_error("RenderSession failed; reconstruct it before use");
+        if (failed_) throw std::logic_error("RenderSession failed; reconstruct it before use");
+        // 画像の通し番号を使い切ったら，クリアや描画を GPU に投入する前に止める
         if (statistics_.render_launches == (std::numeric_limits<std::uint64_t>::max)())
             throw std::overflow_error("Render sequence exhausted");
         static_cast<void>(collect());
@@ -233,9 +253,9 @@ struct RenderSession::Impl
         {
             auto& slot = slots_[index];
             if (slot.frame.use_count() != 1) continue; // held by ANY consumer
-            if (slot.frame->recorded_ && !cdw::is_event_ready(slot.frame->completed_)) continue;
             try
             {
+                if (slot.frame->recorded_ && !cdw::is_event_ready(slot.frame->completed_)) continue;
                 pending_ = true;
                 cdw::ScopedCurrentContext current(cuda_->handle());
                 if (options_.diagnose_unwritten_pixels)
@@ -256,13 +276,13 @@ struct RenderSession::Impl
                 unpublished_slot_ = index;
                 return true;
             }
-            catch (...) { poisoned_ = true; throw; }
+            catch (...) { failed_ = true; throw; }
         }
         return false;
     }
     std::optional<gpu::SubmittedRGB32fImage> take_latest_image()
     {
-        if (poisoned_) throw std::logic_error("RenderSession failed; reconstruct it before use");
+        if (failed_) throw std::logic_error("RenderSession failed; reconstruct it before use");
         if (!unpublished_slot_) return std::nullopt;
 
         const auto& frame = slots_[*unpublished_slot_].frame;
@@ -289,7 +309,7 @@ RenderSession::~RenderSession() noexcept = default;
 bool RenderSession::try_advance() { return impl_->try_advance(); }
 std::optional<gpu::SubmittedRGB32fImage> RenderSession::take_latest_image()
 { return impl_->take_latest_image(); }
-bool RenderSession::collect() { return impl_->collect(); }
+task_execution::MaintenanceStatus RenderSession::collect() { return impl_->collect(); }
 void RenderSession::wait_idle() { impl_->wait_idle(); static_cast<void>(impl_->collect()); }
 CUcontext RenderSession::context() const noexcept { return impl_->cuda_->handle(); }
 std::shared_ptr<const void> RenderSession::context_lifetime() const { return impl_->cuda_; }

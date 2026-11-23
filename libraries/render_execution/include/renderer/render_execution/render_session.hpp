@@ -1,5 +1,7 @@
 #pragma once
 
+#include <renderer/task_execution/maintenance_status.hpp>
+
 #include <concepts>
 #include <optional>
 #include <type_traits>
@@ -22,7 +24,7 @@ concept RenderSessionFor = std::move_constructible<Image>
     { session.take_latest_image() } -> std::same_as<std::optional<Image>>;
 
     // 完了済みの処理に伴うリソースを回収する．再度確認する必要があれば true を返す
-    { session.collect() } -> std::same_as<bool>;
+    { session.collect() } -> std::same_as<task_execution::MaintenanceStatus>;
 };
 
 // 実行中はセッションから画像の型を推論する

@@ -215,7 +215,7 @@ struct Window::Impl
         catch(...)
         {
             // コンストラクタが例外を投げて失敗した場合，デストラクタが呼ばれないので明示的に開放
-            cleanup();
+            close_noexcept();
             throw;
         }
         
@@ -229,7 +229,7 @@ struct Window::Impl
             std::fputs("Viewer Window must be destroyed on its creating main thread\n", stderr);
             std::terminate();
         }
-        cleanup();
+        close_noexcept();
     }
 
     // Window を構築したスレッド (メインスレッド) であることを要求する
@@ -282,7 +282,7 @@ struct Window::Impl
     }
 
     // 初期化済みのリソースを初期化とは逆順に開放する
-    void cleanup() noexcept
+    void close_noexcept() noexcept
     {
 
         if (window_)
@@ -345,6 +345,8 @@ struct Window::Impl
 
 Window::Window(const WindowOptions& options) : impl_(std::make_unique<Impl>(options)) {}
 Window::~Window() noexcept = default;
+
+void Window::require_owner_thread() const { impl_->require_owner(); }
 
 bool Window::should_close() const
 {

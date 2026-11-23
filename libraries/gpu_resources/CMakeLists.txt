@@ -9,6 +9,6 @@ target_link_libraries(renderer_gpu_resources PUBLIC
     cuda_driver_wrapper::cuda_driver_wrapper
 )
 
-if(BUILD_TESTING AND RENDERER_ENABLE_GPU_TESTS)
+if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()

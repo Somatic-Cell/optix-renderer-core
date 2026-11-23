@@ -36,7 +36,7 @@ public:
     // copy / move の禁止
     RGB8ExportJob(const RGB8ExportJob&) = delete;
     RGB8ExportJob& operator=(const RGB8ExportJob&) = delete;
-    RGB8ExportJob(const RGB8ExportJob&&) = delete;
+    RGB8ExportJob(RGB8ExportJob&&) = delete;
     RGB8ExportJob& operator=(RGB8ExportJob&&) = delete;
 
     // 1 回だけよぶ
@@ -48,7 +48,7 @@ public:
         const image_processing::OutputTransformSettings& settings = {}
     );
 
-    // 呼び戻し処理について，現在の状態を返す
+    // 結果を消費せずに完了を確認する．完了後は何度呼んでも true を返す
     [[nodiscard]] bool is_ready();
     
     // 現在の処理が未完了なら完了するまで待つ

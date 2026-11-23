@@ -124,7 +124,7 @@ struct Viewer::Impl
         panels_.draw_inspector = [this] { draw_inspector(); };
         panels_.draw_file_menu = [this]
         {
-            const bool can_save = presented_.has_value() && !error_ && !snapshot_writer_.busy();
+            const bool can_save = presented_.has_value() && !error_ && !snapshot_writer_.pending();
             if (ImGui::MenuItem("Save Snapshot...", nullptr, false, can_save))
                 snapshot_panel_.request_open();
         };
@@ -200,7 +200,7 @@ struct Viewer::Impl
 
     bool try_save_snapshot(std::filesystem::path path)
     {
-        if (error_ || !presented_ || snapshot_writer_.busy()) return false;
+        if (error_ || !presented_ || snapshot_writer_.pending()) return false;
         try
         {
             SnapshotStatus submitting{SnapshotPhase::saving, path, "Saving snapshot..."};
@@ -223,7 +223,7 @@ struct Viewer::Impl
 
     void update_snapshot()
     {
-        if (!snapshot_writer_.busy()) return;
+        if (!snapshot_writer_.pending()) return;
         try
         {
             if (auto path = snapshot_writer_.poll())
@@ -269,7 +269,7 @@ struct Viewer::Impl
         }
     }
 
-    ViewerStatistics statistics() const noexcept
+    ViewerStatistics statistics() const
     {
         return {received_images_, presenter_ ? presenter_->statistics().publications : 0};
     }
@@ -395,7 +395,7 @@ struct Viewer::Impl
         try
         {
             if (auto path = snapshot_panel_.draw(
-                    presented_.has_value() && !error_ && !snapshot_writer_.busy()))
+                    presented_.has_value() && !error_ && !snapshot_writer_.pending()))
                 static_cast<void>(try_save_snapshot(std::move(*path)));
         }
         catch (...)
@@ -421,21 +421,51 @@ struct Viewer::Impl
 Viewer::Viewer(Application application, const ViewerOptions& options)
     : impl_(std::make_unique<Impl>(std::move(application), options)) {}
 Viewer::~Viewer() noexcept = default;
+
 bool Viewer::update() { return impl_->update(); }
+
 void Viewer::request_render()
 {
     if (impl_->error_) std::rethrow_exception(impl_->error_);
     impl_->render_requested_ = true;
 }
+
 void Viewer::set_display_settings(const image_processing::OutputTransformSettings& settings)
-{ impl_->set_display_settings(settings); }
+{ 
+    impl_->window_.request_owner_thread();
+    impl_->set_display_settings(settings); 
+}
+
 image_processing::OutputTransformSettings Viewer::display_settings() const
-{ return impl_->display_settings_; }
+{
+    impl_->window_.request_owner_thread();
+    return impl_->display_settings_; 
+}
+
 bool Viewer::try_save_snapshot(std::filesystem::path path)
-{ return impl_->try_save_snapshot(std::move(path)); }
-SnapshotStatus Viewer::snapshot_status() const { return impl_->snapshot_status_; }
-void Viewer::request_close() { impl_->window_.request_close(); }
-ViewerStatus Viewer::status() const { return impl_->status(); }
-ViewerStatistics Viewer::statistics() const noexcept { return impl_->statistics(); }
+{
+    impl_->window_.require_owner_thread();
+    return impl_->try_save_snapshot(std::move(path));
+}
+
+SnapshotStatus Viewer::snapshot_status() const
+{
+    impl_->window_.require_owner_thread();
+    return impl_->snapshot_status_;
+}
+
+void Viewer::request_close() { 
+    impl_->window_.request_close(); 
+}
+
+ViewerStatus Viewer::status() const { 
+    impl_->window_.require_owner_thread();
+    return impl_->status(); 
+}
+
+ViewerStatistics Viewer::statistics() const noexcept { 
+    impl_->window_.require_owner_thread();
+    return impl_->statistics(); 
+}
 
 } // namespace renderer::render_viewer

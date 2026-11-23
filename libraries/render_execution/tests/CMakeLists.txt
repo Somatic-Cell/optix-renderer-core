@@ -1,5 +1,4 @@
-add_executable(renderer_render_execution_test render_execution_test.cpp)
-renderer_configure_host(renderer_render_execution_test)
-target_link_libraries(renderer_render_execution_test PRIVATE renderer::render_execution)
-add_test(NAME render_execution COMMAND renderer_render_execution_test)
-set_tests_properties(render_execution PROPERTIES TIMEOUT 30 LABELS "cpu;thread;render")
+renderer_add_test(render_execution
+    SOURCES render_execution_test.cpp
+    LINK renderer::render_execution
+    LABELS cpu thread render)

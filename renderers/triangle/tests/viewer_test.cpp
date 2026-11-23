@@ -15,6 +15,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <iterator>
 #include <sstream>
@@ -232,7 +233,7 @@ void verify_saved_png(const std::filesystem::path& path, const DisplaySamples& e
 
 DisplaySamples run_viewer_test(const std::filesystem::path& directory)
 {
-    auto application = renderer::triangle::make_viewer_application(RENDERER_MODULE_DIRECTORY);
+    auto application = renderer::triangle::make_viewer_application(u8"" RENDERER_MODULE_DIRECTORY);
     rv::ViewerOptions options;
     options.visible = false;
     options.vsync = false;
@@ -241,6 +242,15 @@ DisplaySamples run_viewer_test(const std::filesystem::path& directory)
     const auto started = Clock::now();
     auto stage_started = started;
     rv::Viewer viewer(std::move(application), options);
+    const auto rejected = std::async(std::launch::async, [&viewer]
+    {
+        try { viewer.request_render(); }
+        catch (const std::logic_error&) { return true; }
+        return false;
+    }).get();
+
+    if(!rejected) throw std::runtime_error("Viewer accepted a request from another thread");
+    
     const auto first_path = directory / "at-click.png";
     if (viewer.try_save_snapshot(first_path))
         throw std::runtime_error("Accepted a snapshot before presenting an image");

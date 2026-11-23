@@ -1,0 +1,42 @@
+include_guard(GLOBAL)
+include("${CMAKE_CURRENT_LIST_DIR}/ProjectOptions.cmake")
+
+# tests/ は BUILD_TESTING が有効なときだけ読み込む．各テストに必要な実行環境はラベルで指定する
+function(renderer_add_test name)
+    cmake_parse_arguments(PARSE_ARGV 1 test "APPLICATION;RUN_SERIAL" "TIMEOUT"
+        "SOURCES;LINK;ARGS;COMMAND;LABELS")
+    if(test_UNPARSED_ARGUMENTS OR test_KEYWORDS_MISSING_VALUES)
+        message(FATAL_ERROR "${name}: invalid renderer_add_test arguments")
+    endif()
+    if("gpu" IN_LIST test_LABELS AND NOT RENDERER_ENABLE_GPU_TESTS)
+        return()
+    endif()
+    if("viewer" IN_LIST test_LABELS AND (NOT RENDERER_BUILD_VIEWER OR NOT RENDERER_ENABLE_VIEWER_TESTS))
+        return()
+    endif()
+
+    if(test_COMMAND)
+        add_test(NAME ${name} COMMAND ${test_COMMAND})
+    else()
+        set(target renderer_${name}_test)
+        if(test_APPLICATION)
+            # アプリと同じ配置を使い，リンク先が要求する GPU モジュールも用意する
+            renderer_add_application(${target} SOURCES ${test_SOURCES} LINK ${test_LINK})
+        else()
+            add_executable(${target} ${test_SOURCES})
+            renderer_configure_host(${target})
+            target_link_libraries(${target} PRIVATE ${test_LINK})
+        endif()
+        add_test(NAME ${name} COMMAND ${target} ${test_ARGS})
+    endif()
+
+    if(NOT DEFINED test_TIMEOUT)
+        if("gpu" IN_LIST test_LABELS)
+            set(test_TIMEOUT 120)
+        else()
+            set(test_TIMEOUT 30)
+        endif()
+    endif()
+    set_tests_properties(${name} PROPERTIES
+        LABELS "${test_LABELS}" TIMEOUT ${test_TIMEOUT} RUN_SERIAL ${test_RUN_SERIAL})
+endfunction()

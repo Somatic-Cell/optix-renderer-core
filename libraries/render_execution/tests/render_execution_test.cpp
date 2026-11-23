@@ -60,7 +60,10 @@ public:
         return Image{std::make_unique<int>(sequence_)};
     }
 
-    bool collect() { return false; }
+    renderer::task_execution::MaintenanceStatus collect()
+    {
+        return renderer::task_execution::MaintenanceStatus::idle;
+    }
 
 private:
     std::shared_ptr<Gate> gate_;

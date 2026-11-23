@@ -70,7 +70,9 @@ struct ImageReadbackStorage::Impl
     {
     }
 
-    ~Impl() noexcept
+    ~Impl() noexcept { drain_noexcept(); }
+
+    void drain_noexcept() noexcept
     {
         if(state == State::idle || state == State::complete)
         {
@@ -267,7 +269,7 @@ std::span<const std::byte> ImageReadbackStorage::bytes()
 {
     if(!impl_->is_ready())
     {
-        throw std::logic_error("Readback is not ready; wait or poll first");
+        throw std::logic_error("Readback is not ready; call wait() or check is_ready() first");
     }
     return impl_->host_pixels.bytes();
 }

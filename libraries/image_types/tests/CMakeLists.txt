@@ -1,5 +1,4 @@
-add_executable(renderer_image_layout_test image_layout_test.cpp)
-renderer_configure_host(renderer_image_layout_test)
-target_link_libraries(renderer_image_layout_test PRIVATE renderer::image_types)
-add_test(NAME image_layout COMMAND renderer_image_layout_test)
-set_tests_properties(image_layout PROPERTIES LABELS "cpu;image" TIMEOUT 30)
+renderer_add_test(image_layout
+    SOURCES image_layout_test.cpp
+    LINK renderer::image_types
+    LABELS cpu image)

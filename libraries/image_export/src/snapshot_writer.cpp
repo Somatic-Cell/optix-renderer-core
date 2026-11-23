@@ -55,7 +55,7 @@ bool SnapshotWriter::try_submit(
     image_processing::OutputTransformSettings settings,
     std::filesystem::path requested_path)
 {
-    if (busy()) return false;
+    if (pending()) return false;
     const auto input = image.image();
     if (!image.context_lifetime() || !transform || transform.use_count() == 0
         || transform->context() != input.memory.context)
@@ -71,17 +71,19 @@ bool SnapshotWriter::try_submit(
 
 std::optional<std::filesystem::path> SnapshotWriter::poll()
 {
-    if (!busy() || result_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+    if (!pending() || result_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
         return std::nullopt;
     return result_.get();
 }
 
-SnapshotWriter::~SnapshotWriter() noexcept
+SnapshotWriter::~SnapshotWriter() noexcept { drain_noexcept(); }
+
+void SnapshotWriter::drain_noexcept() noexcept
 {
-    if (!busy()) return;
+    if (!pending()) return;
     try { static_cast<void>(result_.get()); }
-    catch (const std::exception& error) { std::fprintf(stderr, "Snapshot save: %s\n", error.what()); }
-    catch (...) { std::fputs("Snapshot save: unknown failure\n", stderr); }
+    catch (const std::exception& error) { std::fprintf(stderr, "[snapshot save cleanup]  %s\n", error.what()); }
+    catch (...) { std::fputs("[snapshot save cleanup] unknown failure\n", stderr); }
 }
 
 } // namespace renderer::image_export

@@ -52,6 +52,7 @@ set(CMAKE_CUDA_RUNTIME_LIBRARY None)
 include(cmake/ProjectOptions.cmake)
 include(cmake/Dependencies.cmake)
 include(cmake/GpuModules.cmake)
+include(cmake/RendererTests.cmake)
 
 if(RENDERER_BUILD_VIEWER)
     include(cmake/ViewerDependencies.cmake)

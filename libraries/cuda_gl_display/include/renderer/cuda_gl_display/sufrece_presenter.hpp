@@ -25,7 +25,7 @@ struct PresentationStatistics
 };
 
 
-// poll / submit は ImGui の draw list を作る前に呼ぶ
+// 生成した GL スレッドで操作/破棄し，生成時の GL コンテキストを current にしておく
 class SurfacePresenter final
 {
 public:
@@ -52,12 +52,13 @@ public:
 
     // 新しいテクスチャを公開したときに true を返す．以後の OpenGL 描画から参照できる
     [[nodiscard]] bool poll();
+    // 受け付けた画像が，まだ poll() で公開されていない間は true
     [[nodiscard]] bool pending() const;
     [[nodiscard]] bool has_image() const;
     [[nodiscard]] unsigned int texture_name() const;
     [[nodiscard]] std::uint32_t width() const noexcept;
     [[nodiscard]] std::uint32_t height() const noexcept;
-    [[nodiscard]] PresentationStatistics statistics() const noexcept;
+    [[nodiscard]] PresentationStatistics statistics() const;
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

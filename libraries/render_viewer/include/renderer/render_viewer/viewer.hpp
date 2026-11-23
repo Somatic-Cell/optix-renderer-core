@@ -58,6 +58,7 @@ struct SnapshotStatus
     std::string message;
 };
 
+// ウインドウを所有するため，生成，操作，破棄は全てメインスレッドで行う
 class Viewer final
 {
 public:
@@ -82,7 +83,7 @@ public:
     void request_close();
 
     [[nodiscard]] ViewerStatus status() const;
-    [[nodiscard]] ViewerStatistics statistics() const noexcept;
+    [[nodiscard]] ViewerStatistics statistics() const;
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

@@ -32,11 +32,11 @@ public:
     // コピー，ムーブの禁止
     ImageReadbackStorage(const ImageReadbackStorage&) = delete;
     ImageReadbackStorage& operator=(const ImageReadbackStorage&) = delete;
-    ImageReadbackStorage(ImageReadbackStorage&) = delete;
+    ImageReadbackStorage(ImageReadbackStorage&&) = delete;
     ImageReadbackStorage& operator=(ImageReadbackStorage&&) = delete;
 
     // 1 回だけよぶ
-    // GPU での画像の変換と CPU への転送を依頼する
+    // GPU 上の画像を CPU に転送する．before_copy があれば，転送前に同じストリームへ処理を投入する
     // 呼び出した CPU スレッドは GPU の完了を待たない
     void submit(
         cuda_driver_wrapper::ConstDeviceMemoryView source,
@@ -47,7 +47,7 @@ public:
         const std::function<void(const cuda_driver_wrapper::Stream&)>& before_copy = {}
     );
 
-    // 呼び戻し処理について，現在の状態を返す
+    // 結果を消費せずに完了を確認する．完了後は何度呼んでも true を返す
     [[nodiscard]] bool is_ready();
     
     // 現在の処理が未完了なら完了するまで待つ
@@ -84,7 +84,7 @@ public:
     // copy / move の禁止
     ImageReadback(const ImageReadback&) = delete;
     ImageReadback& operator=(const ImageReadback&) = delete;
-    ImageReadback(const ImageReadback&&) = delete;
+    ImageReadback(ImageReadback&&) = delete;
     ImageReadback& operator=(ImageReadback&&) = delete;
 
     // 画像の生成完了を待ってから，CPU への転送を開始する．

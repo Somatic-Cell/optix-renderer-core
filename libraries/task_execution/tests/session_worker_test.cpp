@@ -46,7 +46,10 @@ int main()
         {
             Worker worker([counts](const TaskContext& task)
             { task.report("Initialize once"); return std::make_unique<State>(counts); },
-                [](State& state) { return ++state.counts->maintenance < 4; });
+                [](State& state) 
+                { 
+                    return ++state.counts->maintenance < 4 ? MaintenanceStatus::pending : MaintenanceStatus::idle; 
+                });
             until([&] { return worker.status().accepting(); });
             until([&] { return counts->maintenance >= 4; });
             for (int i = 1; i <= 10; ++i)
@@ -104,7 +107,7 @@ int main()
         {
             std::atomic_bool maintenance_entered = false, release = false;
             Worker worker([](const TaskContext&) { return std::make_unique<State>(std::make_shared<Counts>()); },
-                [&](State&) -> bool
+                [&](State&) -> MaintenanceStatus
                 {
                     maintenance_entered = true;
                     while (!release.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -159,7 +162,7 @@ int main()
                         until([&] { return release.load(); });
                         throw std::runtime_error("retire after result");
                     }
-                    return false;
+                    return MaintenanceStatus::idle;
                 }, [&](State&, const TaskContext&) { completed = true; return 17; });
             until([&] { return worker.status().phase == WorkerPhase::completed; });
             release = true;
