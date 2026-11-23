@@ -14,7 +14,7 @@ namespace renderer::render_viewer
 template<class S>
 concept ViewerSession = render_execution::RenderSessionFor<S, gpu::SubmittedRGB32fImage> && requires(const S& source)
 {
-    SourceInfo{source.context(), source.context_lifetime(), source.settings().width, source.settings().height};
+    SourceInfo{source.context(), source.context_lifetime()};
 };
 
 template<ViewerSession S>
@@ -27,8 +27,7 @@ public:
 
     [[nodiscard]] SourceInfo info() const override
     {
-        const auto& image = session_.settings();
-        return {session_.context(), session_.context_lifetime(), image.width, image.height};
+        return {session_.context(), session_.context_lifetime()};
     }
 
     [[nodiscard]] bool try_advance() override { return session_.try_advance(); }

@@ -340,11 +340,7 @@ struct SurfacePresenter::Impl
         }
     }
 
-    // idle: なにもしない
-    // producing かつ GPU 未完了: produced_ イベントの完了を確認
-    // producing かつ GPU 完了: Unmap を発行し，releasing に進む
-    // releasing かつ Unmap 未完了: released_ イベントの完了を確認
-    // releasing かつ Unmap 完了: Front を好感して公開
+    // CUDA の書き込みが終わったテクスチャを OpenGL に渡す
     bool poll()
     {
         // 処理中の画像が存在するかどうかを確認する
@@ -414,9 +410,9 @@ struct SurfacePresenter::Impl
 
         try
         {
-            // CUDA Stream の完了を待つ
+            // 公開直後は pending_ が空でも unmap が実行中の場合があるので，登録解除の前に待つ
             cdw::ScopedCurrentContext current(context_);
-            if(pending_ >= 0) cdw::synchronize_stream(stream_);
+            cdw::synchronize_stream(stream_);
 
             // CUDA surface object とマッピングを解放
             for(auto& slot : slots_)

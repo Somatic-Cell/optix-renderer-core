@@ -16,8 +16,6 @@ struct SourceInfo
 {
     CUcontext context = nullptr;
     std::shared_ptr<const void> context_lifetime;
-    std::uint32_t width = 0;
-    std::uint32_t height = 0;
 };
 
 class FrameSource

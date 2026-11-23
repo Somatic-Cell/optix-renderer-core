@@ -389,6 +389,7 @@ struct Viewer::Impl
         const bool saving = snapshot_status_.phase == SnapshotPhase::saving;
         const bool busy = saving || (current.phase != ViewerPhase::idle && current.phase != ViewerPhase::failed);
         const std::string& message = !error_ && snapshot_status_.phase != SnapshotPhase::idle
+            && (saving || current.phase == ViewerPhase::idle)
             ? snapshot_status_.message : current.message;
         if (workspace_.draw(panels_, {message, busy})) window_.request_close();
         try
