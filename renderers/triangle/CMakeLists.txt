@@ -5,7 +5,13 @@ target_include_directories(renderer_triangle
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/shared"
 )
-target_link_libraries(renderer_triangle PUBLIC renderer::optix_backend renderer::gpu_resources)
+target_link_libraries(renderer_triangle 
+    PUBLIC 
+        renderer::optix_backend 
+        renderer::gpu_resources 
+        renderer::task_execution
+)
+
 renderer_add_optix_module(renderer_triangle_programs device/programs.cu
     STAGE_AS triangle/programs.optixir)
 target_include_directories(renderer_triangle_programs PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/shared")

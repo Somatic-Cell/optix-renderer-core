@@ -28,7 +28,7 @@ int run_cli(
     CliAction action
 );
 
-int viewer_cli(
+int run_viewer_cli(
     int argc,
     const std::filesystem::path::value_type* const* argv,
     std::string_view executable_name,

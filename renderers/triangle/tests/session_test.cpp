@@ -102,7 +102,13 @@ int main()
                 && counters.render_launches == 4 && counters.diagnostic_clears == 0,
                 "Repeated render rebuilt/reallocated/reuploaded/cleared resources");
             session.wait_idle();
-            require(!session.collect(), "Completed setup staging was not retired");
+            
+            
+            require(
+                session.collect() == renderer::task_execution::MaintenanceStatus::idle, 
+                "Completed setup staging was not retired"
+            );
+            
             retained = std::move(third);
         }
         // セッションを破棄した後も，画像ハンドルを通じて完了イベントと画素にアクセスできる．

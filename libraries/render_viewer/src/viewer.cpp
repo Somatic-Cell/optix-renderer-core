@@ -426,19 +426,20 @@ bool Viewer::update() { return impl_->update(); }
 
 void Viewer::request_render()
 {
+    impl_->window_.require_owner_thread();
     if (impl_->error_) std::rethrow_exception(impl_->error_);
     impl_->render_requested_ = true;
 }
 
 void Viewer::set_display_settings(const image_processing::OutputTransformSettings& settings)
 { 
-    impl_->window_.request_owner_thread();
+    impl_->window_.require_owner_thread();
     impl_->set_display_settings(settings); 
 }
 
 image_processing::OutputTransformSettings Viewer::display_settings() const
 {
-    impl_->window_.request_owner_thread();
+    impl_->window_.require_owner_thread();
     return impl_->display_settings_; 
 }
 
@@ -454,16 +455,19 @@ SnapshotStatus Viewer::snapshot_status() const
     return impl_->snapshot_status_;
 }
 
-void Viewer::request_close() { 
+void Viewer::request_close() 
+{ 
     impl_->window_.request_close(); 
 }
 
-ViewerStatus Viewer::status() const { 
+ViewerStatus Viewer::status() const 
+{ 
     impl_->window_.require_owner_thread();
     return impl_->status(); 
 }
 
-ViewerStatistics Viewer::statistics() const noexcept { 
+ViewerStatistics Viewer::statistics() const
+{ 
     impl_->window_.require_owner_thread();
     return impl_->statistics(); 
 }

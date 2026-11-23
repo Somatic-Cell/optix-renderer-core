@@ -7,7 +7,7 @@
 #error RENDERER_MODULE_DIRECTORY must point to staged GPU modules
 #endif
 
-int main(int argc, char** argv)
+int RENDERER_CLI_ENTRY_POINT(int argc, std::filesystem::path::value_type** argv)
 {
     return renderer::app_support::run_viewer_cli(argc, argv, "triangle_viewer", u8"" RENDERER_MODULE_DIRECTORY,
         [](const std::filesystem::path& module_directory)

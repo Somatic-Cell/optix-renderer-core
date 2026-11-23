@@ -44,7 +44,7 @@ Options parse_options(
         }
 
         // バッチだけが --config を受け付ける
-        const bool is_config = Mode::batch && argument == "--config";
+        const bool is_config = mode == Mode::batch && argument == "--config";
         
         // 想定外の引数
         if(!is_config && argument != "--modules")
@@ -98,8 +98,6 @@ Options parse_options(
     return options;
 }
 
-} // namespace 
-
 template<class Action>
 int run(
     int argc, 
@@ -126,7 +124,7 @@ int run(
                         << "--modules overrides the module directory selected by CMake.\n"
                         << "Command-line paths are relative to the working directory.\n";
             if(mode == Mode::batch) 
-                std::cout << "Json output paths are relative to the configuration file.\n"
+                std::cout << "Json output paths are relative to the configuration file.\n";
 
             return EXIT_SUCCESS;
         }
@@ -144,6 +142,8 @@ int run(
         std::cerr << executable_name << ": unknown failure\n";        
     }
     return EXIT_FAILURE;
+}
+
 } // namespace
 
 int run_cli(
@@ -168,5 +168,7 @@ int run_viewer_cli(
     return run(argc, argv, executable_name, default_module_directory, Mode::viewer,
                [action](const std::filesystem::path&, const std::filesystem::path& directory)
                { return action(directory); });
+
+} 
 
 } // namespace renderer::app_support

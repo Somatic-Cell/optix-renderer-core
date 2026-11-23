@@ -30,7 +30,7 @@ public:
     [[nodiscard]] virtual bool try_advance() = 0;
     // 細心の未取得の画像を一度だけ渡す．未取得の画像がなければ空のまま返す
     [[nodiscard]] virtual std::optional<gpu::SubmittedRGB32fImage> take_latest_image() = 0;
-    virtual bool collect() = 0;
+    virtual task_execution::MaintenanceStatus collect() = 0;
 };
 
 struct LaunchEnvironment
