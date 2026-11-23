@@ -82,14 +82,6 @@ struct SurfacePresenter::Impl
         bool mapped = false;                    // CUDA にマッピングされていえるかどうか
     };
 
-    // 非同期処理の状態
-    enum class Phase
-    {
-        idle,       // 画像の生成に関する要求を処理していない 
-        producing,  // CUDA が画像を生成中 or 完了待ち
-        releasing   // CUDA のマッピング解除を投入済み，完了待ち
-    };
-
     GLFWwindow* window_ = require_gl();
     std::thread::id thread_ = std::this_thread::get_id();   // 構築時の CPU スレッド
     detail::GLFunctions gl_;                                // OpenGL の関数を実行時にロードするための構造体
@@ -100,7 +92,6 @@ struct SurfacePresenter::Impl
     std::uint32_t height_;
     cdw::Stream stream_;
     cdw::Event produced_;
-    cdw::Event released_;
     std::array<Slot, 2> slots_{};
     Producer producer_;
     PresentationStatistics statistics_{};
@@ -108,8 +99,6 @@ struct SurfacePresenter::Impl
     // -1: 該当なし, 0: 0 番目の slot, 1: 1 番目のスロット
     int front_      = -1;   // 現在表示しているテクスチャのインデックス
     int pending_    = -1;   // CUDA が画像を生成しているテクスチャのインデックス
-    
-    Phase phase_ = Phase::idle;
     
     bool failed_ = false;
 
@@ -124,8 +113,7 @@ struct SurfacePresenter::Impl
     width_(width),
     height_(height),
     stream_(context),
-    produced_(context),
-    released_(context)
+    produced_(context)
     {
         if(!context_lifetime_ || width == 0 || height == 0)
         {
@@ -296,7 +284,6 @@ struct SurfacePresenter::Impl
         
         // 投入後にエラーが検出される可能性があるため，先にリソースを使用中であることを記録
         pending_ = index;           
-        phase_= Phase::producing;
         
         try
         {
@@ -344,8 +331,6 @@ struct SurfacePresenter::Impl
 
             current.restore();
             return true;
-
-            // 非同期処理のため，ここでは unmap しない
         }
         catch(...)
         {
@@ -369,61 +354,39 @@ struct SurfacePresenter::Impl
 
         try
         {
+            // 完了していないならば，GPU の処理が終わるまで CPU を待機させない
+            if(!cdw::is_event_ready(produced_)) return false;
+
             auto& slot = slots_[static_cast<std::size_t>(pending_)];
-            
-            // 画像の生成の確認
-            if(phase_ == Phase::producing)
-            {
-                // 完了していないならば，GPU の処理が終わるまで CPU を待機させない
-                if(!cdw::is_event_ready(produced_)) return false;
+            // 完了して入れば，surface object を破棄する処理に進んでよい
+            cdw::ScopedCurrentContext current(context_);
 
-                // 完了して入れば，surface object を破棄する処理に進んでよい
-                cdw::ScopedCurrentContext current(context_);
+            // surface object の破棄
+            cdw::check_cuda(
+                cuSurfObjectDestroy(slot.surface),
+                "cuSurfaceObjectDestroy"
+            );
+            slot.surface = 0;
 
-                // surface object の破棄
-                cdw::check_cuda(
-                    cuSurfObjectDestroy(slot.surface),
-                    "cuSurfaceObjectDestroy"
-                );
-                slot.surface = 0;
+            // マッピングを解除 (CUDA から OpenGL を触れないようにする)
+            cdw::check_cuda(
+                cuGraphicsUnmapResources(
+                    1,
+                    &slot.resource,
+                    stream_.handle()
+                ),
+                "cuGraphicsUnmapResources"
+            );
 
-                // マッピングを解除 (CUDA から OpenGL を触れないようにする)
-                cdw::check_cuda(
-                    cuGraphicsUnmapResources(
-                        1,
-                        &slot.resource,
-                        stream_.handle()
-                    ),
-                    "cuGraphicsUnmapResources"
-                );
-
-                // アンマップの要求は完了したので CPU 側はフラグを下す
-                slot.mapped = false;
-                
-                // Unmap の完了を確認するイベントを作成
-                cdw::record_event(released_, stream_);
-                phase_ = Phase::releasing;
-
-                current.restore();
-            }
-
-            // Unmap がまだ終わっていないなら終了
-            if(!cdw::is_event_ready(released_))
-            {
-                return false;
-            }
+            // アンマップの要求は完了したので CPU 側はフラグを下す
+            slot.mapped = false;
+            current.restore();
 
             // 現在の front テクスチャに OpenGL フェンスを作成
             retire_front();
 
-            // front と back の交換
-            // front だったものには fence がかけられているので，CUDA の書き込み先とする前に
-            // 完了確認が行われる
-
             front_ = pending_;      // pending だったものを，今度は OpenGL の front として使う
             pending_ = -1;          // 
-            phase_ = Phase::idle;
-
             // 保持していた CUDA モジュールをリリースする
             producer_ = {};
 

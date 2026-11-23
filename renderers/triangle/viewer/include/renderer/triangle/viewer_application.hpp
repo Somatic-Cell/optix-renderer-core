@@ -25,7 +25,11 @@ namespace renderer::triangle
         options.optix_validation = environment.validation;
         return std::make_unique<render_viewer::SessionFrameSource<RenderSession>>(
             environment.device, module_path(environment.module_directory), options,
-            [&task](std::string message) { task.report(std::move(message)); });
+            [&task](std::string message) 
+            { 
+                task.cancellation_point();
+                task.report(std::move(message)); 
+            });
     };
     return application;
 }

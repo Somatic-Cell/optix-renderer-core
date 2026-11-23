@@ -17,13 +17,6 @@ struct WindowOptions
     bool check_gl_errors = false;
 };
 
-struct GraphicsInfo
-{
-    std::string vendor;
-    std::string renderer;
-    std::string version;
-};
-
 class Window final{
 public:
     explicit Window(const WindowOptions& options = {});
@@ -44,7 +37,6 @@ public:
 
     void set_vsync(bool enabled);
     void resize(int width, int height);
-    [[nodiscard]] const GraphicsInfo& graphics_info() const;
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

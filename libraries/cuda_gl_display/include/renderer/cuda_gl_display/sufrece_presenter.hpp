@@ -29,7 +29,7 @@ struct PresentationStatistics
 class SurfacePresenter final
 {
 public:
-    // ラムダ式の寿命が先に尽きたとき，無効な参照を使わないようにするための工夫
+    // この呼び出し内で，サーフェスを使うすべての処理を指定のストリームに投入する
     using Producer = std::function<void(gpu::RGBA8SurfaceView, const cuda_driver_wrapper::Stream&)>;
     
     SurfacePresenter(
@@ -47,10 +47,10 @@ public:
     SurfacePresenter(SurfacePresenter&&) = delete;
     SurfacePresenter& operator=(SurfacePresenter&&) = delete;
 
-    // bool が返ってきた: submit できていない
-    // もう一度 try すること
+    // 書き込み先が使用中なら false を返す．その場合は producer を呼ばず，再試行できる
     [[nodiscard]] bool try_submit(Producer producer);
 
+    // 新しいテクスチャを公開したときに true を返す．以後の OpenGL 描画から参照できる
     [[nodiscard]] bool poll();
     [[nodiscard]] bool pending() const;
     [[nodiscard]] bool has_image() const;

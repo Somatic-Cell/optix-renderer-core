@@ -23,7 +23,7 @@ void write_png(
 );
 
 // 既存ファイルを上書きしないで保存する
-// 名前が衝突したら，_0001 - _0999 を試し，実際のパスを返す
+// 名前が衝突したら，_0001 - _9999 を試し，実際のパスを返す
 [[nodiscard]] std::filesystem::path write_new_png(
     const std::filesystem::path& requested, 
     RGB8ImageView image

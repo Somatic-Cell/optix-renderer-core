@@ -38,18 +38,6 @@ std::string glfw_failure(const char* operation)
         + (description ? description : "no GLFW diagnostic");
 }
 
-// OpenGL から文字列を取得する
-std::string gl_string(GLenum name)
-{
-    const auto* value = glGetString(name);
-    if(!value){
-        throw std::runtime_error("OpenGL did not return context information");
-    }
-    return reinterpret_cast<const char*>(value);
-}
-
-
-
 } // namespace
 
 struct Window::Impl
@@ -69,7 +57,6 @@ struct Window::Impl
     bool check_gl_errors_ = false;      // OpenGL 周りの初期化が適切に行えたかどうか
     float dpi_scale_ = 0.0f;             // 
     ImGuiStyle base_style_{};
-    GraphicsInfo graphics_info_;
     detail::WindowTheme window_theme_;
 
     explicit Impl(const WindowOptions& options)
@@ -172,12 +159,6 @@ struct Window::Impl
 
             glfwSwapInterval(options.vsync ? 1 : 0);
             
-            graphics_info_ = {
-                gl_string(GL_VENDOR),   // ベンダーの情報を取得 (NVIDIA Corporation など)
-                gl_string(GL_RENDERER), // OpenGL のレンダラ情報
-                gl_string(GL_VERSION)   
-            };
-
             check_gl_errors_ = options.check_gl_errors;
 
             // --------------
@@ -458,12 +439,6 @@ void Window::resize(int width, int height)
         throw std::invalid_argument("Window dimensions must be positive");
     }
     glfwSetWindowSize(impl_->window_, width, height);
-}
-
-const GraphicsInfo& Window::graphics_info() const
-{
-    impl_->require_owner();
-    return impl_->graphics_info_;
 }
 
 } // namespace renderer::viewer 

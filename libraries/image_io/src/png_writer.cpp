@@ -16,7 +16,7 @@ void validate_png_dimensions(std::uint32_t width, std::uint32_t height)
 {
 
     // fpng は，IHDR (画像ヘッダ) に画像の幅と高さの下位 16-bit を書き込む仕様になっているため，
-    // 各辺を 2^16 -1 以下に制限してを受け付けないようにする 
+    // 幅と高さがそれぞれ 2^16 -1 を超えてしまわないようにする 
     constexpr std::uint32_t fpng_max_dimension = 65535;
     
     // 保存しようとしている画像サイズが正常に保存できる範囲かどうかを確認

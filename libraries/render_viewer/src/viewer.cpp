@@ -247,9 +247,11 @@ struct Viewer::Impl
             [factory = std::move(application_.create_source), environment, &display = display_]
             (const tasks::TaskContext& task)
             {
+                task.cancellation_point();
                 task.report("Preparing renderer session...");
                 auto source = factory(environment, task);
                 if (!source) throw std::runtime_error("Frame source is null");
+                task.cancellation_point();
                 task.report("Loading the shared linear/surface transform module...");
                 display = std::make_shared<DisplayProgram>(source->info(),
                     image_processing::output_transform_module_path(environment.module_directory));

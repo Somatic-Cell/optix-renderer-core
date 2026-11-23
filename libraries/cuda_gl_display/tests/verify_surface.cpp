@@ -14,12 +14,6 @@
 #include <span>
 #include <stdexcept>
 
-#if defined(_WIN32)
-#define RENDERER_GL_CALL __stdcall
-#else
-#define RENDERER_GL_CALL
-#endif
-
 namespace renderer::cuda_gl_display::tests
 {
 void verify_surface(unsigned int texture, gpu::ConstRGB32fImageView source,
@@ -27,12 +21,12 @@ void verify_surface(unsigned int texture, gpu::ConstRGB32fImageView source,
     const image_processing::OutputTransformSettings& settings)
 {
     static_cast<void>(gpu::validate_image_view(source, source.memory.context));
-    using GetTextureSubImage = void (RENDERER_GL_CALL*)(GLuint, GLint,
+    using GetTextureSubImage = void (APIENTRY*)(GLuint, GLint,
         GLint, GLint, GLint, GLsizei, GLsizei, GLsizei, GLenum, GLenum, GLsizei, void*);
     const auto address = glfwGetProcAddress("glGetTextureSubImage");
     if (!address) throw std::runtime_error("glGetTextureSubImage is required for the surface test");
     const auto read_texture = reinterpret_cast<GetTextureSubImage>(address);
-    using BindBuffer = void (RENDERER_GL_CALL*)(GLenum, GLuint);
+    using BindBuffer = void (APIENTRY*)(GLenum, GLuint);
     const auto bind_address = glfwGetProcAddress("glBindBuffer");
     if (!bind_address) throw std::runtime_error("glBindBuffer is required for the V2 test");
     const auto bind_buffer = reinterpret_cast<BindBuffer>(bind_address);
@@ -131,4 +125,3 @@ void verify_surface(unsigned int texture, gpu::ConstRGB32fImageView source,
     std::cout << "GPU surface transform: PASS (8 GPU linear/surface pairs exact + analytic reference <=1 code value)\n";
 }
 }
-#undef RENDERER_GL_CALL

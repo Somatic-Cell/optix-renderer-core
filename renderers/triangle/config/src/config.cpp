@@ -69,7 +69,7 @@ void validate_config(const RenderConfig& value)
 void from_json(const nlohmann::json& document, RendererSettings& value)
 {
     auto candidate = value;
-    config_io::read_json_fields(document, candidate, renderer_fields);
+    config_io::read_json_fields_in_place(document, candidate, renderer_fields);
     validate_renderer(candidate);
     value = candidate;
 }
@@ -94,7 +94,7 @@ void from_json(const nlohmann::json& document, RenderConfig& value)
 {
     // 完全な設定文書は毎回既定値から読み込み，すべての検証に成功してから反映する．
     RenderConfig candidate{};
-    config_io::read_json_fields(document, candidate, config_fields);
+    config_io::read_json_fields_in_place(document, candidate, config_fields);
     validate_config(candidate);
     value = std::move(candidate);
 }

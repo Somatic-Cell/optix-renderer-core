@@ -9,22 +9,14 @@
 
 // Windows のシステムに標準搭載されている OpenGL のヘッダは，OpenGL 1.1 の API まで 
 // 何らかの方法で呼び出す必要がある
-// ここで，今回，必要な関数は 11 種類
+// ここで，今回，必要な関数は 6 種類
 // よって，GLAD / GLEW をわざわざ呼び出さず，必要な関数だけを手動でロードする
 // ImGUI には OpenGL の関数をロードするための内部実装があるが，ImGUI が使うためのものなので，ビューワでは使わない
 // GLFW には glfwGetProcAddress があるので，これを使って OpenGL の関数をロードする
 
 
-// ABI と呼び出しの規約
-
 // ポインタとして使う (opaque handle)
 struct __GLsync;
-
-#if defined(_WIN32)
-#define RENDERER_GL_CALL __stdcall
-#else
-#define RENDERER_GL_CALL
-#endif
 
 // OpenGL の型を定義する
 namespace renderer::cuda_gl_display::detail
@@ -59,12 +51,12 @@ struct GLFunctions
         }
         return reinterpret_cast<Function>(address);
     }
-    using CreateTextures    = void(RENDERER_GL_CALL*)(GLenum, GLsizei, GLuint*);
-    using Storage           = void(RENDERER_GL_CALL*)(GLuint, GLsizei, GLenum, GLsizei, GLsizei);
-    using Parameter         = void(RENDERER_GL_CALL*)(GLuint, GLenum, GLint);
-    using Fence             = GLsyncHandle(RENDERER_GL_CALL*)(GLenum, GLbitfield);
-    using Poll              = GLenum(RENDERER_GL_CALL*)(GLsyncHandle, GLbitfield, std::uint64_t);
-    using Delete            = void(RENDERER_GL_CALL*)(GLsyncHandle);
+    using CreateTextures    = void(APIENTRY*)(GLenum, GLsizei, GLuint*);
+    using Storage           = void(APIENTRY*)(GLuint, GLsizei, GLenum, GLsizei, GLsizei);
+    using Parameter         = void(APIENTRY*)(GLuint, GLenum, GLint);
+    using Fence             = GLsyncHandle(APIENTRY*)(GLenum, GLbitfield);
+    using Poll              = GLenum(APIENTRY*)(GLsyncHandle, GLbitfield, std::uint64_t);
+    using Delete            = void(APIENTRY*)(GLsyncHandle);
 
     CreateTextures create_textures  = load<CreateTextures>("glCreateTextures");
     Storage texture_storage         = load<Storage>("glTextureStorage2D");
@@ -84,5 +76,3 @@ inline void check_gl(const char* operation)
 }
 
 }  // namespace renderer::cuda_gl_display::detail
-
-#undef RENDERER_GL_CALL

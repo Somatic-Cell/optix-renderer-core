@@ -58,9 +58,6 @@ public:
     // タスクの進捗の通知
     void report(std::string message) const 
     {
-        // 通知の直前にキャンセルのリクエストがあるかどうかを確認
-        cancellation_point();
-
         if(report_)
         {
             report_(std::move(message)); // コピーを減らしたいのでムーブ
