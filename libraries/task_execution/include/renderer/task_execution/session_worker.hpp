@@ -331,7 +331,7 @@ private:
                     const auto has_work = [this] { return pending_.has_value(); };
                     if (maintenance_status == MaintenanceStatus::pending)
                     {
-                        wake_.wait_for(lock, stop, std::chrono::microseconds(2), has_work);
+                        wake_.wait_for(lock, stop, std::chrono::milliseconds(1), has_work);
                     } 
                     else
                     {
