@@ -14,9 +14,9 @@ __device__ inline std::uint8_t encode_srgb_channel(
 {
     // 範囲外を clamp
     const float exposed = fminf(fmaxf(linear * exposure_scale, 0.0f), 1.0f);
-    const float encoded = linear <= 0.0031308f
-        ? 12.92f * linear
-        : __fmul_rn(1.055f, powf(linear, 1.0f / 2.4f)) - 0.055f;
+    const float encoded = exposed <= 0.0031308f
+        ? 12.92f * exposed
+        : __fmul_rn(1.055f, powf(exposed, 1.0f / 2.4f)) - 0.055f;
     const float bounded = fminf(fmaxf(encoded, 0.0f), 1.0f);
     return static_cast<std::uint8_t>(std::roundf(bounded * 255.0f));
 }
