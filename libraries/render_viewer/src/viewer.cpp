@@ -405,7 +405,8 @@ struct Viewer::Impl
         }
         window_.end_frame();
 
-        if (!error_ && !window_.should_close())
+        if (window_.should_close()) return false;
+        if(!error_)
         {
             try
             {
@@ -413,6 +414,10 @@ struct Viewer::Impl
                 submit_request();
             }
             catch (...) { fail(std::current_exception()); }
+        }
+        if(!vsync_ && !snapshot_writer_.pending() && (error_ || status().phase == ViewerPhase::idle))
+        {
+            window_.wait_for_events();
         }
         return !window_.should_close();
     }

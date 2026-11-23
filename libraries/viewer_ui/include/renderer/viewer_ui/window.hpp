@@ -34,6 +34,9 @@ public:
     [[nodiscard]] bool should_close() const;
     void request_close();
 
+    // 次のウィンドウのイベントを待って処理する．タイムアウトは 50 ms
+    void wait_for_events();
+
     // イベントを監視する
     [[nodiscard]] bool begin_frame();
     void end_frame();

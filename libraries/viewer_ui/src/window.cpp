@@ -360,6 +360,12 @@ void Window::request_close()
     glfwSetWindowShouldClose(impl_->window_, GLFW_TRUE);
 }
 
+void Window::wait_for_events()
+{
+    impl_->activate();
+    glfwWaitEventsTimeout(0.05);
+}
+
 bool Window::begin_frame()
 {
     impl_->activate();
@@ -379,7 +385,7 @@ bool Window::begin_frame()
     glfwGetFramebufferSize(impl_->window_, &width, &height);
     if ( glfwGetWindowAttrib(impl_->window_, GLFW_ICONIFIED) || width <= 0 || height <= 0)
     {
-        glfwWaitEventsTimeout(0.05);
+        wait_for_events();
         return false;
     }
 
