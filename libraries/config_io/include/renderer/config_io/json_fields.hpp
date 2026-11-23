@@ -277,6 +277,15 @@ private:
     nlohmann::json document_ = nlohmann::json::object();
 };
 
+// 候補値に直接読み込む．読み込みに失敗した候補値は呼び出し側で破棄する
+template<class T, class Fields>
+void read_json_fields_in_place(const nlohmann::json& document, T& candidate, Fields&& fields)
+{
+    JsonObjectReader reader(document);
+    fields(reader, candidate);
+    reader.finish();
+}
+
 // JSON の内容を C++ 側のオブジェクトに読み込む
 template<class T, class Fields>
 void read_json_fields(
@@ -286,9 +295,7 @@ void read_json_fields(
 )
 {
     T candidate = value;
-    JsonObjectReader reader(document);
-    fields(reader, candidate);
-    reader.finish();
+    read_json_fields_in_place(document, candidate, fields);
     value = std::move(candidate);
 }
 

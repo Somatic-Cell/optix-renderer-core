@@ -15,8 +15,8 @@ namespace renderer::image_io
 void validate_png_dimensions(std::uint32_t width, std::uint32_t height)
 {
 
-    // fpng は，IHDR (画像ヘッダ) に書き込む画像のサイズを 16-bit で表現している
-    // そのため，fpng の実装内で正しく動かすために 2^16 -1 以上の画素数を受け付けないようにする 
+    // fpng は，IHDR (画像ヘッダ) に画像の幅と高さの下位 16-bit を書き込む仕様になっているため，
+    // 各辺を 2^16 -1 以下に制限してを受け付けないようにする 
     constexpr std::uint32_t fpng_max_dimension = 65535;
     
     // 保存しようとしている画像サイズが正常に保存できる範囲かどうかを確認
@@ -58,10 +58,10 @@ void validate_png_dimensions(std::uint32_t width, std::uint32_t height)
         throw std::length_error("Image exceeds fpng's 32-bit buffer limits");
     }
 
-    // PNG の一つのチャンクに入れられるデータ長は 2^32 - 1 byte 以下
-    // fpng は zlib データ全体を一つの IDAT に格納するため，これが 2^32 - 1 byte 以下かどうかをチェックする 
+    // PNG の一つのチャンクに入れられるデータ長は 2^31 - 1 byte 以下
+    // fpng は zlib データ全体を一つの IDAT に格納するため，これが 2^31 - 1 byte 以下かどうかをチェックする 
     const std::uint64_t max_idat_bytes = 6 + filtered_bytes + block_count * 5;
-    constexpr std::uint64_t max_png_chunk_dada_bytes = 0x7fff'ffff; // 2^32 - 1
+    constexpr std::uint64_t max_png_chunk_dada_bytes = 0x7fff'ffff; // 2^31 - 1
 
     if(max_idat_bytes > max_png_chunk_dada_bytes)
     {

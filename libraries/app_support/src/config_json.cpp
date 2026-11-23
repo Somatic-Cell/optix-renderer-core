@@ -100,7 +100,7 @@ void validate_device(const DeviceSettings& value)
 void from_json(const Json& document, DeviceSettings& value)
 {
     auto candidate = value;
-    io::read_json_fields(document, candidate, device_fields);
+    io::read_json_fields_in_place(document, candidate, device_fields);
     validate_device(candidate);
     value = candidate;
 }
@@ -114,7 +114,7 @@ void to_json(Json& document, const DeviceSettings& value)
 void OutputSettingsCodec::read(const nlohmann::json& document, image_export::ExportSettings& value) const
 {
     auto candidate = value;
-    config_io::read_json_fields(document, candidate, output_fields);
+    io::read_json_fields_in_place(document, candidate, output_fields);
 
     // 部分読み込みでは，省略されたフィールドの元の値も検査してから反映する
     image_export::validate_export_settings(candidate);

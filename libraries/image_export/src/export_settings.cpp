@@ -20,7 +20,7 @@ Writer select_writer(ImageFileFormat format)
         case ImageFileFormat::png:
             return {
                 image_io::validate_png_dimensions,
-                static_cast<void (*)(const std::filesystem::path&, RGB8ImageView)>(image_io::write_png)
+                image_io::write_png
             };
     }
 
