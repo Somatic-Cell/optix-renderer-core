@@ -38,8 +38,8 @@ void check_pixel(const fs::path& path, const std::array<std::uint8_t, 3>& expect
 void check_new_png(const fs::path& dir)
 {
     const std::array<std::uint8_t, 3> red{210, 0, 0}, blue{0, 0, 180};
-    const renderer::RGB8ImageView a{1, 1, std::as_bytes(std::span(red))};
-    const renderer::RGB8ImageView b{1, 1, std::as_bytes(std::span(blue))};
+    const renderer::HostRGB8ImageView  a{1, 1, std::as_bytes(std::span(red))};
+    const renderer::HostRGB8ImageView  b{1, 1, std::as_bytes(std::span(blue))};
     const auto target = dir / u8"triangle.png";
 
     const auto first = renderer::image_io::write_new_png(target, a);

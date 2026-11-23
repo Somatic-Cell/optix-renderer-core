@@ -1,9 +1,9 @@
 #include "verify_surface.hpp"
 
-#include <renderer/cuda_gl_display/sufrece_presenter.hpp>
+#include <renderer/cuda_gl_display/surface_presenter.hpp>
 #include <renderer/image_processing/output_transform.hpp>
-#include <renderer/viewer/window.hpp>
-#include <renderer/viewer/workspace.hpp>
+#include <renderer/viewer_ui/window.hpp>
+#include <renderer/viewer_ui/workspace.hpp>
 #include <cuda_driver_wrapper/context.hpp>
 #include <cuda_driver_wrapper/device_buffer.hpp>
 #include <cuda_driver_wrapper/device_memory.hpp>
@@ -81,13 +81,13 @@ std::vector<std::byte> make_input()
 
 void run_test()
 {
-    renderer::viewer::WindowOptions options;
+    renderer::viewer_ui::WindowOptions options;
     options.title = "CUDA/OpenGL surface test";
     options.visible = false;
     options.vsync = false;
     options.check_gl_errors = true;
-    renderer::viewer::Window window(options);
-    renderer::viewer::Workspace workspace;
+    renderer::viewer_ui::Window window(options);
+    renderer::viewer_ui::Workspace workspace;
 
     // 破棄順：presenter -> transform/input -> CUDA context -> OpenGL window．
     const auto device = display::device_for_current_gl_context();
@@ -95,13 +95,13 @@ void run_test()
     const auto host_input = make_input();
     cdw::DeviceBuffer pixels(context->handle(), host_input.size());
     cdw::copy_host_to_device(pixels.view(), std::span<const std::byte>(host_input));
-    const renderer::gpu::ConstRGB32fImageView input{
+    const renderer::gpu::ConstDeviceRGB32fImageView input{
         std::as_const(pixels).view(), width, height, row_stride};
     processing::OutputTransform transform(context->handle(),
         processing::output_transform_module_path(u8"" RENDERER_MODULE_DIRECTORY));
     display::SurfacePresenter presenter(context->handle(), context, width, height);
 
-    renderer::viewer::WorkspacePanels panels;
+    renderer::viewer_ui::WorkspacePanels panels;
     panels.draw_render_view = [&]
     {
         if (presenter.has_image())

@@ -8,15 +8,16 @@ target_include_directories(renderer_triangle
 target_link_libraries(renderer_triangle 
     PUBLIC 
         renderer::optix_backend 
-        renderer::gpu_resources 
+        renderer::gpu 
+        renderer::image_types
         renderer::task_execution
 )
 
-renderer_add_optix_module(renderer_triangle_programs device/programs.cu
+renderer_add_optix_module(renderer_triangle_module device/programs.cu
     STAGE_AS triangle/programs.optixir)
-target_include_directories(renderer_triangle_programs PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/shared")
-target_link_libraries(renderer_triangle_programs PRIVATE renderer::image_types)
-renderer_require_gpu_module(renderer_triangle renderer_triangle_programs
+target_include_directories(renderer_triangle_module PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/shared")
+target_link_libraries(renderer_triangle_module PRIVATE renderer::image_types)
+renderer_require_gpu_module(renderer_triangle renderer_triangle_module
     RENDERER_TRIANGLE_MODULE_PATH)
 add_subdirectory(config)
 if(RENDERER_BUILD_VIEWER)

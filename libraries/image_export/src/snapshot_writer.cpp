@@ -21,7 +21,7 @@ namespace fs = std::filesystem;
 // the pixel lease can then be released as soon as the readback completes.
 struct SaveRequest
 {
-    std::shared_ptr<const void> context_owner;
+    std::shared_ptr<const void> context_lifetime;
     std::shared_ptr<const image_processing::OutputTransform> transform;
     std::optional<gpu::SubmittedRGB32fImage> frame;
     ExportSettings output;

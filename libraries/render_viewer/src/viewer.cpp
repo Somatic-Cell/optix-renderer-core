@@ -1,11 +1,11 @@
 #include <renderer/render_viewer/viewer.hpp>
 #include "snapshot_panel.hpp"
 #include <renderer/image_export/snapshot_writer.hpp>
-#include <renderer/cuda_gl_display/sufrece_presenter.hpp>
+#include <renderer/cuda_gl_display/surface_presenter.hpp>
 #include <renderer/image_processing/output_transform.hpp>
 #include <renderer/render_execution/render_execution.hpp>
-#include <renderer/viewer/window.hpp>
-#include <renderer/viewer/workspace.hpp>
+#include <renderer/viewer_ui/window.hpp>
+#include <renderer/viewer_ui/workspace.hpp>
 #include <cuda_driver_wrapper/event.hpp>
 
 #include <imgui.h>
@@ -25,14 +25,14 @@ namespace
 namespace tasks = task_execution;
 namespace cdw = cuda_driver_wrapper;
 
-struct DisplayProgram
+struct SharedOutputTransform
 {
     // モジュールを破棄するまで，生成に使った CUDA コンテキストを保持する
-    std::shared_ptr<const void> context_owner;
+    std::shared_ptr<const void> context_lifetime;
     image_processing::OutputTransform transform;
 
-    DisplayProgram(SourceInfo info, const std::filesystem::path& path)
-        : context_owner(std::move(info.context_lifetime)), transform(info.context, path) {}
+    SharedOutputTransform(SourceInfo info, const std::filesystem::path& path)
+        : context_lifetime(std::move(info.context_lifetime)), transform(info.context, path) {}
 };
 
 using Execution = render_execution::RenderExecution<FrameSource>;
@@ -64,7 +64,7 @@ std::string failure_text(std::exception_ptr error)
     return {};
 }
 
-viewer::WindowOptions window_options(
+viewer_ui::WindowOptions window_options(
     const Application& app,
     const ViewerOptions& options
 )
@@ -72,7 +72,7 @@ viewer::WindowOptions window_options(
     if (!app.create_source) throw std::invalid_argument("A frame-source factory is required");
     image_processing::validate_output_transform_settings(app.display);
 
-    viewer::WindowOptions result;
+    viewer_ui::WindowOptions result;
     result.title = app.title;
     result.visible = options.visible;
     result.vsync = options.vsync;
@@ -84,13 +84,13 @@ viewer::WindowOptions window_options(
 struct Viewer::Impl
 {
     Application application_;
-    viewer::Window window_;
-    viewer::Workspace workspace_;
+    viewer_ui::Window window_;
+    viewer_ui::Workspace workspace_;
 
     // ワーカーが初期化時に一度だけ設定
     // UI は最初の画像を受け取ったあとに読む
     // 初期化中に閉じた場合も，execution_ がワーカーの終了を待ってから display_ を破棄する
-    std::shared_ptr<DisplayProgram> display_;
+    std::shared_ptr<SharedOutputTransform> display_;
     std::unique_ptr<Execution> execution_;
     tasks::WorkerStatus worker_status_;
     std::optional<gpu::SubmittedRGB32fImage> latest_;
@@ -111,7 +111,7 @@ struct Viewer::Impl
 
     image_processing::OutputTransformSettings display_settings_;
     std::uint64_t received_images_ = 0;
-    viewer::WorkspacePanels panels_;
+    viewer_ui::WorkspacePanels panels_;
 
     Impl(Application application, const ViewerOptions& options)
         :   application_(std::move(application)),
@@ -253,7 +253,7 @@ struct Viewer::Impl
                 if (!source) throw std::runtime_error("Frame source is null");
                 task.cancellation_point();
                 task.report("Loading the shared linear/surface transform module...");
-                display = std::make_shared<DisplayProgram>(source->info(),
+                display = std::make_shared<SharedOutputTransform>(source->info(),
                     image_processing::output_transform_module_path(environment.module_directory));
                 return source;
             });

@@ -1,4 +1,4 @@
-#include <renderer/viewer/window.hpp>
+#include <renderer/viewer_ui/window.hpp>
 
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
@@ -15,7 +15,7 @@
 #include <stdexcept>
 #include <thread>
 
-namespace renderer::viewer
+namespace renderer::viewer_ui
 {
 
 namespace 
@@ -34,7 +34,7 @@ std::string glfw_failure(const char* operation)
 {
     const char* description = nullptr;
     const int code = glfwGetError(&description);
-    return std::string(operation) + "failed (" + std::to_string(code) + "): "
+    return std::string(operation) + " failed (" + std::to_string(code) + "): "
         + (description ? description : "no GLFW diagnostic");
 }
 
@@ -140,7 +140,7 @@ struct Window::Impl
 
             if(!window_)
             {
-                throw std::runtime_error(glfw_failure("glfwCraeteWindow"));
+                throw std::runtime_error(glfw_failure("glfwCreateWindow"));
             }
 
             // テーマの設定
@@ -443,4 +443,4 @@ void Window::resize(int width, int height)
     glfwSetWindowSize(impl_->window_, width, height);
 }
 
-} // namespace renderer::viewer 
+} // namespace renderer::viewer_ui 

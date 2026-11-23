@@ -61,16 +61,16 @@ void validate_png_dimensions(std::uint32_t width, std::uint32_t height)
     // PNG の一つのチャンクに入れられるデータ長は 2^31 - 1 byte 以下
     // fpng は zlib データ全体を一つの IDAT に格納するため，これが 2^31 - 1 byte 以下かどうかをチェックする 
     const std::uint64_t max_idat_bytes = 6 + filtered_bytes + block_count * 5;
-    constexpr std::uint64_t max_png_chunk_dada_bytes = 0x7fff'ffff; // 2^31 - 1
+    constexpr std::uint64_t max_png_chunk_data_bytes = 0x7fff'ffff; // 2^31 - 1
 
-    if(max_idat_bytes > max_png_chunk_dada_bytes)
+    if(max_idat_bytes > max_png_chunk_data_bytes)
     {
         throw std::length_error("Image exceeds fpng's single-IDAT size limit");
     }
 }
 
 namespace {
-std::vector<std::uint8_t> encode_png(RGB8ImageView image)
+std::vector<std::uint8_t> encode_png(HostRGB8ImageView image)
 {
     validate_png_dimensions(image.width, image.height);
 
@@ -111,7 +111,7 @@ std::vector<std::uint8_t> encode_png(RGB8ImageView image)
 // fpng を使って PNG ファイルをエンコードし，保存する
 void write_png(
     const std::filesystem::path& path,  // 保存先のパス
-    const RGB8ImageView image          // エンコードしたい画像
+    const HostRGB8ImageView image          // エンコードしたい画像
 )
 {
     const auto encoded = encode_png(image);   
@@ -137,12 +137,12 @@ void write_png(
 
 void write_png(const std::filesystem::path& path, const RGB8Image& image)
 {
-    write_png(path, RGB8ImageView{image.width, image.height, std::as_bytes(std::span(image.pixels))});
+    write_png(path, HostRGB8ImageView{image.width, image.height, std::as_bytes(std::span(image.pixels))});
 }
 
 std::filesystem::path write_new_png(
     const std::filesystem::path& requested,
-    RGB8ImageView image
+    HostRGB8ImageView image
 )
 {
     if(

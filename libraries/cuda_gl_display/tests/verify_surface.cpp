@@ -16,11 +16,11 @@
 
 namespace renderer::cuda_gl_display::tests
 {
-void verify_surface(unsigned int texture, gpu::ConstRGB32fImageView source,
+void verify_surface(unsigned int texture, gpu::ConstDeviceRGB32fImageView source,
     const image_processing::OutputTransform& transform,
     const image_processing::OutputTransformSettings& settings)
 {
-    static_cast<void>(gpu::validate_image_view(source, source.memory.context));
+    static_cast<void>(gpu::checked_image_view_bytes(source, source.memory.context));
     using GetTextureSubImage = void (APIENTRY*)(GLuint, GLint,
         GLint, GLint, GLint, GLsizei, GLsizei, GLsizei, GLenum, GLenum, GLsizei, void*);
     const auto address = glfwGetProcAddress("glGetTextureSubImage");
@@ -78,9 +78,9 @@ void verify_surface(unsigned int texture, gpu::ConstRGB32fImageView source,
             const auto& point = points[i];
             const auto offset = static_cast<std::size_t>(point[1]) * source.row_stride_bytes
                 + static_cast<std::size_t>(point[0]) * sizeof(RGB32f);
-            const gpu::ConstRGB32fImageView input{cdw::subview(source.memory, offset, sizeof(RGB32f)),
+            const gpu::ConstDeviceRGB32fImageView input{cdw::subview(source.memory, offset, sizeof(RGB32f)),
                 1, 1, sizeof(RGB32f)};
-            const gpu::RGB8ImageView output{cdw::subview(reference.view(), i * sizeof(RGB8), sizeof(RGB8)),
+            const gpu::DeviceRGB8ImageView output{cdw::subview(reference.view(), i * sizeof(RGB8), sizeof(RGB8)),
                 1, 1, sizeof(RGB8)};
             transform.enqueue(input, output, stream, settings);
         }

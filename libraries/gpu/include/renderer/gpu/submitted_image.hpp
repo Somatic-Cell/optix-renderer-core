@@ -16,14 +16,14 @@ class SubmittedImage final
 {
 public:
     SubmittedImage(
-        ConstImageView<Pixel> image,
+        ConstDeviceImageView<Pixel> image,
         std::shared_ptr<const void > pixels_lifetime,
         std::shared_ptr<const cuda_driver_wrapper::Event> completion,
-        std::shared_ptr<const void> conetxt_lifetime,
+        std::shared_ptr<const void> context_lifetime,
         std::uint64_t sequence
     ) : 
     image_(image), 
-    context_lifetime_(std::move(conetxt_lifetime)),
+    context_lifetime_(std::move(context_lifetime)),
     pixels_lifetime_(std::move(pixels_lifetime)),
     completion_(std::move(completion)), 
     sequence_(sequence)
@@ -37,7 +37,7 @@ public:
             || context_lifetime_.use_count() == 0 
         )
         {
-            throw std::invalid_argument("Submitted image requires owing pixel, event and context lifetime");
+            throw std::invalid_argument("Submitted image requires owning pixel, event and context lifetime");
         }
 
         if (!completion_->is_valid() || completion_->context() != image.memory.context)
@@ -45,7 +45,7 @@ public:
             throw std::invalid_argument("Invalid submitted image event / context");
         }
 
-        static_cast<void>(validate_image_view(image_, completion_->context()));
+        static_cast<void>(checked_image_view_bytes(image_, completion_->context()));
     }
 
     SubmittedImage(const SubmittedImage&) noexcept = default;
@@ -75,7 +75,7 @@ public:
     }
 
     [[nodiscard]] 
-    ConstImageView<Pixel>image() const noexcept 
+    ConstDeviceImageView<Pixel>image() const noexcept 
     { 
         return image_; 
     }
@@ -105,7 +105,7 @@ public:
     }
 
 private:
-    ConstImageView<Pixel> image_;
+    ConstDeviceImageView<Pixel> image_;
 
     std::shared_ptr<const void> context_lifetime_;
     std::shared_ptr<const void> pixels_lifetime_;

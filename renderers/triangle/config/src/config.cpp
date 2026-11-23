@@ -22,8 +22,8 @@ constexpr auto renderer_fields = [](auto& fields, auto& value)
     {
         throw std::invalid_argument("type: unsupported value '" + type + "'");
     }
-    fields.field("width", value.width);
-    fields.field("height", value.height);
+    fields.field("width", value.extent.width);
+    fields.field("height", value.extent.height);
 };
 
 constexpr auto diagnostics_fields = [](auto& fields, auto& value)
@@ -42,7 +42,7 @@ constexpr auto config_fields = [](auto& fields, auto& value)
 
 void validate_renderer(const RendererSettings& value)
 {
-    if (value.width == 0 || value.height == 0)
+    if (value.extent.width == 0 || value.extent.height == 0)
     {
         throw std::invalid_argument("width and height must be positive");
     }
@@ -52,13 +52,13 @@ void validate_config(const RenderConfig& value)
 {
     try
     {
-        image_export::validate_export_dimensions(value.output.format, value.renderer.width, value.renderer.height);
+        image_export::validate_export_dimensions(value.output.format, value.renderer.extent.width, value.renderer.extent.height);
     }
     catch (const std::length_error& error)
     {
         throw std::invalid_argument(error.what());
     }
-    if (value.diagnostics.verify_triangle && (value.renderer.width != 800 || value.renderer.height != 600))
+    if (value.diagnostics.verify_triangle && (value.renderer.extent.width != 800 || value.renderer.extent.height != 600))
     {
         throw std::invalid_argument("diagnostics.verify_triangle requires an 800x600 image");
     }

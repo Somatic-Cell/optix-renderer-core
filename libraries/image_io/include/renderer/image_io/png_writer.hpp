@@ -14,7 +14,7 @@ void validate_png_dimensions(std::uint32_t width, std::uint32_t height);
 // 既存のファイルは上書きされる
 void write_png(
     const std::filesystem::path& path,  // 保存先のパス
-    const RGB8ImageView image             // エンコードしたい画像
+    const HostRGB8ImageView image             // エンコードしたい画像
 );
 
 void write_png(
@@ -26,6 +26,6 @@ void write_png(
 // 名前が衝突したら，_0001 - _9999 を試し，実際のパスを返す
 [[nodiscard]] std::filesystem::path write_new_png(
     const std::filesystem::path& requested, 
-    RGB8ImageView image
+    HostRGB8ImageView image
 );
 } //namespace renderer::image_io

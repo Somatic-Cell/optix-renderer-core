@@ -36,7 +36,7 @@ void validate_export_request(
 
 void write_export_image(
     const ExportSettings& settings,
-    RGB8ImageView image
+    HostRGB8ImageView image
 );
 
 } // namespace renderer::image_export

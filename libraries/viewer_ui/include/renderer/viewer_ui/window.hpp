@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 
-namespace renderer::viewer
+namespace renderer::viewer_ui
 {
 
 struct WindowOptions
@@ -45,4 +45,4 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-} // namespace renderer::viewer
+} // namespace renderer::viewer_ui

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <renderer/gpu/submitted_image.hpp>
+#include <renderer/image_types/image_layout.hpp>
 #include <renderer/task_execution/maintenance_status.hpp>
 
 #include <cuda.h>
@@ -16,10 +17,9 @@ namespace renderer::triangle
 // モジュールのルートディレクトリから，セッションが読む OptiX IR のパスを組み立てる
 [[nodiscard]] std::filesystem::path module_path(const std::filesystem::path& module_directory);
 
-struct Settings { std::uint32_t width = 800; std::uint32_t height = 600; };
 struct SessionOptions
 {
-    Settings image{};
+    ImageExtent extent{800, 600};
     std::uint32_t frame_slots = 2;
     bool optix_validation = false;
     bool diagnose_unwritten_pixels = false;
@@ -69,7 +69,7 @@ public:
     void wait_idle();
     [[nodiscard]] CUcontext context() const noexcept;
     [[nodiscard]] std::shared_ptr<const void> context_lifetime() const;
-    [[nodiscard]] Settings settings() const noexcept;
+    [[nodiscard]] ImageExtent extent() const noexcept;
     [[nodiscard]] SessionStatistics statistics() const noexcept;
 private:
     struct Impl;

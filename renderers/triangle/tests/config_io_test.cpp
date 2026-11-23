@@ -79,7 +79,7 @@ int main(int argc, char** argv)
         {
             const auto config = Json{{"schema_version", 1}}.get<RenderConfig>();
             require(config.device.ordinal == 0, "default device changed");
-            require(config.renderer.width == 800 && config.renderer.height == 600,
+            require(config.renderer.extent.width == 800 && config.renderer.extent.height == 600,
                 "default dimensions changed");
             require(config.output.path == "triangle.png", "default output path changed");
         });
@@ -102,8 +102,8 @@ int main(int argc, char** argv)
             RenderConfig config;
             config.device.ordinal = 2;
             config.device.optix_validation = true;
-            config.renderer.width = 641;
-            config.renderer.height = 479;
+            config.renderer.extent.width = 641;
+            config.renderer.extent.height = 479;
             config.output.path = std::filesystem::path(u8"../画像/結果.png");
             config.output.transform.exposure_ev = ExposureEv{0.1f};
             const Json document = config;

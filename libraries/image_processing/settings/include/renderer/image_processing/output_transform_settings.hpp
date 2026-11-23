@@ -11,7 +11,7 @@ enum class ToneMapping {
 
 // 伝達関数
 enum class TransferFunction {
-    sRGB
+    srgb
 };
 
 inline constexpr float minimum_exposure_ev = -32.0f;
@@ -42,7 +42,7 @@ struct OutputTransformSettings
 {
     ExposureEv exposure_ev{};
     ToneMapping tone_mapping = ToneMapping::clip;
-    TransferFunction transfer_function = TransferFunction::sRGB;
+    TransferFunction transfer_function = TransferFunction::srgb;
 
     bool operator==(const OutputTransformSettings&) const = default;
 };
@@ -58,7 +58,7 @@ inline void validate_output_transform_settings(
         throw std::invalid_argument("Unsupported tone mapping operator");
     }
 
-    if(settings.transfer_function != TransferFunction::sRGB)
+    if(settings.transfer_function != TransferFunction::srgb)
     {
         throw std::invalid_argument("Unsupported transfer function");
     }

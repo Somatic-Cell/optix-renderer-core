@@ -1,5 +1,5 @@
-#include <renderer/viewer/window.hpp>
-#include <renderer/viewer/workspace.hpp>
+#include <renderer/viewer_ui/window.hpp>
+#include <renderer/viewer_ui/workspace.hpp>
 #include <imgui.h>
 #include <chrono>
 #include <cstdlib>
@@ -10,17 +10,17 @@ namespace
 {
 void run_ui_smoke()
 {
-    namespace viewer = renderer::viewer;
+    namespace viewer_ui = renderer::viewer_ui;
     for (int cycle = 0; cycle != 2; ++cycle)
     {
-        viewer::WindowOptions options;
-        options.title = "Viewer UI smoke";
+        viewer_ui::WindowOptions options;
+        options.title = "viewer UI smoke";
         options.visible = false;
         options.vsync = false;
         options.check_gl_errors = true;
-        viewer::Window window(options);
-        viewer::Workspace workspace;
-        viewer::WorkspacePanels panels;
+        viewer_ui::Window window(options);
+        viewer_ui::Workspace workspace;
+        viewer_ui::WorkspacePanels panels;
         panels.draw_render_view = [] { ImGui::TextUnformatted("UI test; no renderer is connected."); };
         panels.draw_inspector = [] { ImGui::TextUnformatted("GLFW / ImGui lifecycle test"); };
         int frames = 0;

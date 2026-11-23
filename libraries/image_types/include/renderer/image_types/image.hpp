@@ -23,7 +23,7 @@ struct Image
 
 
 template<class Pixel>
-struct ImageView
+struct HostImageView
 {
     static_assert(std::is_trivially_copyable_v<Pixel>);
     std::uint32_t width = 0;
@@ -33,7 +33,7 @@ struct ImageView
 
 using RGB8Image = Image<RGB8>;
 using RGB32fImage = Image<RGB32f>;
-using RGB8ImageView = ImageView<RGB8>;
-using RGB32fImageView = ImageView<RGB32f>;
+using HostRGB8ImageView  = HostImageView<RGB8>;
+using HostRGB32fImageView = HostImageView<RGB32f>;
 
 } // namespace renderer

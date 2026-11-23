@@ -69,7 +69,7 @@ struct Owners
     std::shared_ptr<cdw::DeviceBuffer> pixels;
     std::shared_ptr<cdw::Event> event;
 
-    renderer::gpu::ConstRGB8ImageView image() const
+    renderer::gpu::ConstDeviceRGB8ImageView image() const
     {
         return {std::as_const(*pixels).view(), 1, 1, sizeof(renderer::RGB8)};
     }

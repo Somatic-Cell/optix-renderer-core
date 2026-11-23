@@ -34,8 +34,8 @@ int reference_output_byte(double linear, double exposure_scale)
 } // namespace
 
 void verify_triangle(
-    gpu::ConstRGB32fImageView image,
-    RGB8ImageView readback,
+    gpu::ConstDeviceRGB32fImageView image,
+    HostRGB8ImageView  readback,
     const image_processing::OutputTransformSettings& settings)
 {
     namespace cdw = cuda_driver_wrapper;

@@ -21,6 +21,6 @@ target_include_directories(renderer_image_export PUBLIC
 target_link_libraries(renderer_image_export PUBLIC
     renderer::export_settings
     renderer::image_processing
-    renderer::gpu_resources
+    renderer::gpu
     PRIVATE renderer::image_io Threads::Threads
 )

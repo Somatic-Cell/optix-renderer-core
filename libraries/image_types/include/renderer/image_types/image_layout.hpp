@@ -7,6 +7,13 @@
 
 namespace renderer 
 {
+
+struct ImageExtent
+{
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+};
+
 [[nodiscard]]
 inline std::size_t checked_row_bytes(
     std::uint32_t width,

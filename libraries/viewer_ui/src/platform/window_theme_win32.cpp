@@ -7,7 +7,7 @@
 #include "window_theme.hpp"
 #include <cstdio>
 
-namespace renderer::viewer::detail
+namespace renderer::viewer_ui::detail
 {
 void WindowTheme::update(GLFWwindow* window) noexcept
 {
@@ -55,4 +55,4 @@ void WindowTheme::update(GLFWwindow* window) noexcept
     set(DWMWA_TEXT_COLOR, text);
     set(DWMWA_BORDER_COLOR, border);
 }
-} // namespace renderer::viewer::detail
+} // namespace renderer::viewer_ui::detail

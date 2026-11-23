@@ -89,7 +89,7 @@ public:
 
     // 画像の生成完了を待ってから，CPU への転送を開始する．
     void submit(
-        ConstImageView<Pixel> input,
+        ConstDeviceImageView<Pixel> input,
         const cuda_driver_wrapper::Event& producer
     )
     {
@@ -99,7 +99,7 @@ public:
     // producer の完了待ちと転送の間に，同じストリームへ処理を投入する．
     // before_copy は submit 内で呼び出し，保持しない．
     void submit(
-        ConstImageView<Pixel> input,
+        ConstDeviceImageView<Pixel> input,
         const cuda_driver_wrapper::Event& producer,
         const std::function<void(const cuda_driver_wrapper::Stream&)>& before_copy
     )
@@ -109,7 +109,7 @@ public:
 
     
     void submit(
-        ConstImageView<Pixel> input
+        ConstDeviceImageView<Pixel> input
     )
     {
         storage_.submit(input.memory, input.width, input.height, input.row_stride_bytes, nullptr);
@@ -123,7 +123,7 @@ public:
 
     // 読み戻した CPU メモリを参照するための情報を返す
     // 処理が完了後に取得できる．ビューの画素はこの ImageReadback を破棄するまで有効
-    [[nodiscard]] renderer::ImageView<Pixel> view()
+    [[nodiscard]] renderer::HostImageView<Pixel> view()
     {
         return {storage_.width(), storage_.height(), storage_.bytes()};
     }

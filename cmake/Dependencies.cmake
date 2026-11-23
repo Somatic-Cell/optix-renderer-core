@@ -27,7 +27,7 @@ find_path(OPTIX_INCLUDE_DIR
 
 # OptiX が見つからない場合，中止
 if(NOT OPTIX_INCLUDE_DIR)
-    message(FATAL_ERROR "OptiX headers were not found. Configure with -DOPTIX_ROOT=${OPTIX_ROOT}.")
+    message(FATAL_ERROR "OptiX headers were not found. Configure with -DOPTIX_ROOT=<path to OptiX SDK>.")
 endif()
 
 # OptiX のバージョンを読み取る
@@ -39,7 +39,7 @@ file(STRINGS "${OPTIX_INCLUDE_DIR}/optix.h" _renderer_optix_version_line
 
 # 一致する行がない場合，中止
 if(NOT _renderer_optix_version_line)
-    message(FATAL_ERROR "Cannot red OPTIX_VERSION from ${OPTIX_INCLUDE_DIR}/optix.h")
+    message(FATAL_ERROR "Cannot read OPTIX_VERSION from ${OPTIX_INCLUDE_DIR}/optix.h")
 endif()
 
 # バージョン番号の抽出

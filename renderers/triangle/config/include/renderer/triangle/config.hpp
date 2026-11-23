@@ -2,9 +2,9 @@
 
 #include <renderer/app_support/device_settings.hpp>
 #include <renderer/image_export/export_settings.hpp>
+#include <renderer/image_types/image_layout.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-#include <cstdint>
 #include <filesystem>
 
 namespace renderer::triangle
@@ -12,8 +12,7 @@ namespace renderer::triangle
 
 struct RendererSettings
 {
-    std::uint32_t width = 800;
-    std::uint32_t height = 600;
+    ImageExtent extent{800, 600};
 };
 
 struct DiagnosticsSettings

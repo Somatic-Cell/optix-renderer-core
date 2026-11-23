@@ -14,7 +14,7 @@ namespace cdw = cuda_driver_wrapper;
 namespace {
 
     std::size_t validate(
-    gpu::ConstRGB32fImageView input, 
+    gpu::ConstDeviceRGB32fImageView input, 
     CUcontext context,
     const cdw::Stream& stream, 
     const OutputTransformSettings& settings
@@ -25,7 +25,7 @@ namespace {
     {
         throw std::invalid_argument("Output transform stream has the wrong context");
     }
-    return validate_image_view(input, context);
+    return checked_image_view_bytes(input, context);
 }
 
 cdw::LaunchConfig launch_for(
@@ -58,8 +58,8 @@ OutputTransform::OutputTransform(
 }
 
 void OutputTransform::enqueue(
-    gpu::ConstRGB32fImageView input,
-    gpu::RGB8ImageView output,
+    gpu::ConstDeviceRGB32fImageView input,
+    gpu::DeviceRGB8ImageView output,
     const cdw::Stream& stream,
     const OutputTransformSettings& settings
 ) const
@@ -72,7 +72,7 @@ void OutputTransform::enqueue(
         throw std::invalid_argument("Output transform image dimensions do not match");
     }
 
-    const auto output_bytes = gpu::validate_image_view<RGB8>(output, context());
+    const auto output_bytes = gpu::checked_image_view_bytes<RGB8>(output, context());
 
     if(
         input.memory.data < output.memory.data + output_bytes
@@ -104,7 +104,7 @@ void OutputTransform::enqueue(
 }
 
 void OutputTransform::enqueue(
-    gpu::ConstRGB32fImageView input,
+    gpu::ConstDeviceRGB32fImageView input,
     gpu::RGBA8SurfaceView output,
     const cdw::Stream& stream,
     const OutputTransformSettings& settings

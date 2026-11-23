@@ -3,7 +3,7 @@
 #include <functional>
 #include <string>
 
-namespace renderer::viewer
+namespace renderer::viewer_ui
 {
 
 struct ActivityStatus
@@ -28,4 +28,4 @@ private:
     bool reset_layout_ = false;
 };
 
-} // namespace renderer::viewer
+} // namespace renderer::viewer_ui

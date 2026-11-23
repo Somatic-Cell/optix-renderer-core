@@ -9,8 +9,8 @@ namespace renderer::triangle
 
 // 800 × 600 の固定シーンを 8 点で検証する．同期読み戻しを行うため，呼び出し前に描画の完了を待つ．
 void verify_triangle(
-    gpu::ConstRGB32fImageView image,
-    RGB8ImageView readback,
+    gpu::ConstDeviceRGB32fImageView image,
+    HostRGB8ImageView  readback,
     const image_processing::OutputTransformSettings& settings
 );
 

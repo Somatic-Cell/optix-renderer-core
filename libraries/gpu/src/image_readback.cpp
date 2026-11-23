@@ -23,7 +23,7 @@ CUcontext checked_context(
 {
     if(!stream.is_valid() || stream.context() == nullptr)
     {
-        throw std::invalid_argument("Readback stream must a valid stream and context");
+        throw std::invalid_argument("Readback stream must be a valid stream and context");
     }
     return stream.context();
 }
@@ -118,7 +118,7 @@ struct ImageReadbackStorage::Impl
             throw std::invalid_argument("Readback input dimensions do not match");
         }
 
-        static_cast<void>(validate_image_memory(source, context, w, h, stride, pixel_size, pixel_alignment));
+        static_cast<void>(checked_image_memory_bytes(source, context, w, h, stride, pixel_size, pixel_alignment));
 
         if(producer && (!producer->is_valid() || producer->context() != context))
         {

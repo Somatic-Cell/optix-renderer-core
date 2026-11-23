@@ -1,4 +1,4 @@
-#include <renderer/cuda_gl_display/sufrece_presenter.hpp>
+#include <renderer/cuda_gl_display/surface_presenter.hpp>
 #include "gl_functions.hpp"
 
 #include <cudaGL.h>
@@ -104,7 +104,7 @@ struct SurfacePresenter::Impl
 
     Impl(
         CUcontext context, 
-        std::shared_ptr<const void> lifetime,
+        std::shared_ptr<const void> context_lifetime,
         std::uint32_t width,
         std::uint32_t height
     ) : 
@@ -115,9 +115,9 @@ struct SurfacePresenter::Impl
     stream_(context),
     produced_(context)
     {
-        if(!context_lifetime_ || width == 0 || height == 0)
+        if(!context_context_lifetime_ || width == 0 || height == 0)
         {
-            throw std::invalid_argument("Surface presenter requrires an owned context and positive dimensions");
+            throw std::invalid_argument("Surface presenter requires an owned context and positive dimensions");
         }
 
         try
@@ -141,7 +141,7 @@ struct SurfacePresenter::Impl
             
             // CUDA と OpenGL が同じ GPU を使用していることをチェック
             CUdevice device = 0;
-            cdw::check_cuda(cuCtxGetDevice(&device), "cCtxGetDevice");
+            cdw::check_cuda(cuCtxGetDevice(&device), "cuCtxGetDevice");
 
             if(device != device_for_current_gl_context())
             {
@@ -369,7 +369,7 @@ struct SurfacePresenter::Impl
             // surface object の破棄
             cdw::check_cuda(
                 cuSurfObjectDestroy(slot.surface),
-                "cuSurfaceObjectDestroy"
+                "cuSurfObjectDestroy"
             );
             slot.surface = 0;
 
@@ -509,10 +509,10 @@ struct SurfacePresenter::Impl
 
 SurfacePresenter::SurfacePresenter(
     CUcontext context, 
-    std::shared_ptr<const void> lifetime,
+    std::shared_ptr<const void> context_lifetime,
     std::uint32_t width,
     std::uint32_t height
-) : impl_(std::make_unique<Impl>(context, std::move(lifetime), width, height)) {}
+) : impl_(std::make_unique<Impl>(context, std::move(context_lifetime), width, height)) {}
 
 SurfacePresenter::~SurfacePresenter() noexcept = default;
 

@@ -1,9 +1,9 @@
 renderer_add_test(gpu_image_readback
     SOURCES image_readback_test.cpp
-    LINK renderer::gpu_resources
+    LINK renderer::gpu
     LABELS gpu readback)
 
 renderer_add_test(gpu_submitted_image
     SOURCES submitted_image_test.cpp
-    LINK renderer::gpu_resources
+    LINK renderer::gpu
     LABELS gpu image lifetime)

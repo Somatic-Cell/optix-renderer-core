@@ -40,7 +40,7 @@ static_assert(sizeof(float3) == 3 * sizeof(float));
 
 SessionOptions checked_options(SessionOptions options)
 {
-    static_cast<void>(packed_image_bytes(options.image.width, options.image.height, sizeof(RGB32f)));
+    static_cast<void>(packed_image_bytes(options.extent.width, options.extent.height, sizeof(RGB32f)));
     if (options.frame_slots == 0)
         throw std::invalid_argument("Frame slot count must be positive");
     return options;
@@ -152,7 +152,7 @@ struct RenderSession::Impl
             sbt_.hitgroupRecordBase = sbt_buffer_.device_ptr() + 2 * sizeof(SbtRecord);
             sbt_.hitgroupRecordStrideInBytes = sizeof(SbtRecord);
             sbt_.hitgroupRecordCount = 1;
-            const auto bytes = packed_image_bytes(options_.image.width, options_.image.height, sizeof(RGB32f));
+            const auto bytes = packed_image_bytes(options_.extent.width, options_.extent.height, sizeof(RGB32f));
             slots_.reserve(options_.frame_slots);
             for (std::uint32_t i = 0; i < options_.frame_slots; ++i)
             {
@@ -175,7 +175,7 @@ struct RenderSession::Impl
             for (auto& slot : slots_)
             {
                 const LaunchParams params{reinterpret_cast<RGB32f*>(slot.frame->pixels_.device_ptr()),
-                    options_.image.width, options_.image.height, traversable};
+                    options_.extent.width, options_.extent.height, traversable};
                 std::memcpy(slot.upload.bytes().data(), &params, sizeof(params));
                 cdw::copy_host_to_device_async(slot.parameters.view(), slot.upload.view(), stream_);
                 ++statistics_.parameter_uploads;
@@ -267,7 +267,7 @@ struct RenderSession::Impl
                 // No host sync, per-request GAS build, allocation or parameter copy.
                 optix_backend::check_optix(optixLaunch(pipeline_->handle(), stream_.handle(),
                     slot.parameters.device_ptr(), slot.parameters.size_bytes(), &sbt_,
-                    options_.image.width, options_.image.height, 1), "optixLaunch");
+                    options_.extent.width, options_.extent.height, 1), "optixLaunch");
                 cdw::record_event(slot.frame->completed_, stream_);
                 slot.frame->recorded_ = true;
                 last_completion_ = &slot.frame->completed_;
@@ -286,9 +286,9 @@ struct RenderSession::Impl
         if (!unpublished_slot_) return std::nullopt;
 
         const auto& frame = slots_[*unpublished_slot_].frame;
-        const gpu::ConstRGB32fImageView image{std::as_const(frame->pixels_).view(),
-            options_.image.width, options_.image.height,
-            checked_row_bytes(options_.image.width, sizeof(RGB32f))};
+        const gpu::ConstDeviceRGB32fImageView image{std::as_const(frame->pixels_).view(),
+            options_.extent.width, options_.extent.height,
+            checked_row_bytes(options_.extent.width, sizeof(RGB32f))};
         std::optional<gpu::SubmittedRGB32fImage> result(std::in_place, image, frame,
             std::shared_ptr<const cdw::Event>(frame, &frame->completed_),
             cuda_, statistics_.render_launches);
@@ -313,6 +313,6 @@ task_execution::MaintenanceStatus RenderSession::collect() { return impl_->colle
 void RenderSession::wait_idle() { impl_->wait_idle(); static_cast<void>(impl_->collect()); }
 CUcontext RenderSession::context() const noexcept { return impl_->cuda_->handle(); }
 std::shared_ptr<const void> RenderSession::context_lifetime() const { return impl_->cuda_; }
-Settings RenderSession::settings() const noexcept { return impl_->options_.image; }
+ImageExtent RenderSession::extent() const noexcept { return impl_->options_.extent; }
 SessionStatistics RenderSession::statistics() const noexcept { return impl_->statistics_; }
 }

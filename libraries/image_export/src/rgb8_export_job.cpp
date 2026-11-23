@@ -35,7 +35,7 @@ struct RGB8ExportJob::Impl
 {
     const image_processing::OutputTransform& transform;
     cdw::DeviceBuffer device_pixels;
-    gpu::RGB8ImageView destination;
+    gpu::DeviceRGB8ImageView destination;
     gpu::RGB8Readback readback;
 
     Impl(
@@ -64,7 +64,7 @@ RGB8ExportJob::RGB8ExportJob(
 RGB8ExportJob::~RGB8ExportJob() noexcept = default;
 
 void RGB8ExportJob::submit(
-    gpu::ConstRGB32fImageView input,
+    gpu::ConstDeviceRGB32fImageView input,
     const cuda_driver_wrapper::Event& producer_completion,
     const image_processing::OutputTransformSettings& settings
 )
@@ -85,6 +85,6 @@ void RGB8ExportJob::submit(
 
 bool RGB8ExportJob::is_ready() { return impl_->readback.is_ready(); }
 void RGB8ExportJob::wait() { impl_->readback.wait(); }
-RGB8ImageView RGB8ExportJob::view() { return impl_->readback.view(); }
+HostRGB8ImageView RGB8ExportJob::view() { return impl_->readback.view(); }
 
 } // namespace renderer::output

@@ -42,7 +42,7 @@ void check_image(const cdw::Stream& producer_stream, const cdw::Stream& copy_str
     cdw::copy_host_to_device(input.view(), pitched);
     cdw::Event produced(producer_stream.context());
     cdw::record_event(produced, producer_stream);
-    const renderer::gpu::ConstImageView<Pixel> image{input.view(), width, height, stride};
+    const renderer::gpu::ConstDeviceImageView<Pixel> image{input.view(), width, height, stride};
 
     renderer::gpu::ImageReadback<Pixel> readback(copy_stream, width, height);
     require(!readback.is_ready(), "Idle readback reported ready");

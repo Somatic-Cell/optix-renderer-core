@@ -4,7 +4,7 @@
 
 struct GLFWwindow;
 
-namespace renderer::viewer::detail
+namespace renderer::viewer_ui::detail
 {
 
     class WindowTheme final
@@ -19,4 +19,4 @@ private:
     bool warned_ = false;
 };
 
-} // namespace renderer::viewer::detail
+} // namespace renderer::viewer_ui::detail

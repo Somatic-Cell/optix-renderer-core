@@ -10,7 +10,7 @@ namespace
 struct Writer
 {
     void (*validate_dimensions)(std::uint32_t, std::uint32_t);
-    void (*write)(const std::filesystem::path&, RGB8ImageView);
+    void (*write)(const std::filesystem::path&, HostRGB8ImageView);
 };
 
 Writer select_writer(ImageFileFormat format)
@@ -74,7 +74,7 @@ void validate_export_request(
 
 void write_export_image(
     const ExportSettings& settings,
-    RGB8ImageView image
+    HostRGB8ImageView image
 )
 {
     checked_writer(settings).write(settings.path, image);

@@ -20,7 +20,7 @@ void render_triangle(const RenderConfig& config, CUdevice device,
     const std::filesystem::path& triangle_module, const std::filesystem::path& output_module)
 {
     SessionOptions options;
-    options.image = {config.renderer.width, config.renderer.height};
+    options.extent = config.renderer.extent;
     options.frame_slots = 1;
     options.optix_validation = config.device.optix_validation;
     options.diagnose_unwritten_pixels = config.diagnostics.verify_triangle;
@@ -31,7 +31,7 @@ void render_triangle(const RenderConfig& config, CUdevice device,
     auto frame = session.take_latest_image();
     if (!frame) throw std::logic_error("Submitted triangle render has no image");
     image_export::RGB8ExportJob export_job(transform, output_stream,
-        config.renderer.width, config.renderer.height);
+        config.renderer.extent.width, config.renderer.extent.height);
     export_job.submit(frame->image(), frame->completion_event(), config.output.transform);
     export_job.wait();
     const auto image = export_job.view();
@@ -51,7 +51,7 @@ int run(const RenderConfig& config, const std::filesystem::path& module_director
     const auto device = app_support::initialize_cli_device(config.device, module_directory, std::cout);
     render_triangle(config, device, triangle_module, output_module);
     std::cout << "Saved: " << std::filesystem::absolute(config.output.path) << " ("
-        << config.renderer.width << " x " << config.renderer.height
+        << config.renderer.extent.width << " x " << config.renderer.extent.height
         << ", RGB8, exposure EV: " << config.output.transform.exposure_ev.value() << ")\n";
     return EXIT_SUCCESS;
 }

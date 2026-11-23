@@ -43,7 +43,7 @@ public:
     // GPU での画像の変換と CPU への転送を依頼する
     // 呼び出した CPU スレッドは GPU の完了を待たない
     void submit(
-        gpu::ConstRGB32fImageView input,
+        gpu::ConstDeviceRGB32fImageView input,
         const cuda_driver_wrapper::Event& producer_completion,
         const image_processing::OutputTransformSettings& settings = {}
     );
@@ -56,7 +56,7 @@ public:
 
     // 読み戻した CPU メモリを参照するための情報を返す
     // 処理が未完了の場合は取得できない
-    [[nodiscard]] RGB8ImageView view();
+    [[nodiscard]] HostRGB8ImageView view();
 
 private:
     struct Impl;

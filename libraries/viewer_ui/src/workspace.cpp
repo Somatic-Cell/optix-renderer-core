@@ -1,4 +1,4 @@
-#include <renderer/viewer/workspace.hpp>
+#include <renderer/viewer_ui/workspace.hpp>
 
 #include <imgui.h>
 
@@ -11,7 +11,7 @@
 #error "The viewer requires the pinned Dear ImGui docking branch."
 #endif
 
-namespace renderer::viewer
+namespace renderer::viewer_ui
 {
 namespace {
 // パネル名の定義
@@ -27,7 +27,7 @@ public:
     ~WindowScope() {ImGui::End();}
     // コピーの禁止
     WindowScope(const WindowScope&) = delete;
-    WindowScope& operator=(const WindowScope) = delete;
+    WindowScope& operator=(const WindowScope&) = delete;
 
     [[nodiscard]] bool visible() const noexcept { return visible_; }
 private:
@@ -134,4 +134,4 @@ bool Workspace::draw(
     return close_required; // ユーザがメニューから終了を要求したかどうか
 }
 
-} // namespace renderer::viewer
+} // namespace renderer::viewer_ui

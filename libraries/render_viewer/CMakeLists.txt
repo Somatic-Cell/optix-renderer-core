@@ -12,8 +12,8 @@ target_include_directories(renderer_render_viewer PUBLIC "${CMAKE_CURRENT_SOURCE
 
 target_link_libraries(renderer_render_viewer
     PUBLIC 
-        renderer::viewer 
-        renderer::gpu_resources 
+        renderer::viewer_ui 
+        renderer::gpu 
         renderer::image_processing_settings 
         renderer::task_execution
         renderer::render_execution 

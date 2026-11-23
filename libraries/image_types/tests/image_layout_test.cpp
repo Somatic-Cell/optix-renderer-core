@@ -35,7 +35,7 @@ int main()
         rejects<std::length_error>([&] { static_cast<void>(required_image_bytes(1, 3, max / 2 + 1, 1)); });
         require(required_image_bytes(1, 2, max - 1, 1) == max, "Exact size_t boundary");
         RGB32f value{-1.0f, 0.5f, 1000.0f}, restored{};
-        const RGB32fImageView view{1, 1, std::as_bytes(std::span(&value, 1))};
+        const HostRGB32fImageView view{1, 1, std::as_bytes(std::span(&value, 1))};
         std::memcpy(&restored, view.bytes.data(), sizeof(restored));
         require(restored.r == value.r && restored.g == value.g && restored.b == value.b,
             "Image view must not transform samples");

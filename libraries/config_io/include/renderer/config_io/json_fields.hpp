@@ -200,7 +200,7 @@ private:
         const std::string key(name);
         if (!declared_.insert(key).second)
         {
-            throw std::logic_error("Duplicate filed binding: " + key);
+            throw std::logic_error("Duplicate field binding: " + key);
         }
 
         // JSON から，key に対応するフィールドを検索

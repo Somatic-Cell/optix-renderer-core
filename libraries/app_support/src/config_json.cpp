@@ -11,7 +11,6 @@ namespace
 {
 
 using Json = nlohmann::json;
-namespace io = renderer::config_io;
 
 constexpr std::array output_formats{
     std::pair{std::string_view{"png"}, image_export::ImageFileFormat::png}
@@ -20,7 +19,7 @@ constexpr std::array tone_mappings{
     std::pair{std::string_view{"clip"}, image_processing::ToneMapping::clip}
 };
 constexpr std::array color_encodings{
-    std::pair{std::string_view{"srgb"}, image_processing::TransferFunction::sRGB}
+    std::pair{std::string_view{"srgb"}, image_processing::TransferFunction::srgb}
 };
 
 void validate_output_path(const std::filesystem::path& path)
@@ -37,7 +36,7 @@ struct PathCodec
     void read(const Json& document, std::filesystem::path& value) const 
     {
         std::string text;
-        io::JsonValueCodec{}.read(document, text);
+        config_io::JsonValueCodec{}.read(document, text);
         
         std::filesystem::path candidate(std::u8string(text.begin(), text.end()));
         
@@ -79,9 +78,9 @@ constexpr auto device_fields = [](auto& fields, auto& value)
 constexpr auto output_fields = [](auto& fields, auto& value)
 {
     fields.field("path", value.path, PathCodec{});
-    fields.field("format", value.format, io::JsonEnumCodec{output_formats});
-    fields.field("color_encoding", value.transform.transfer_function, io::JsonEnumCodec{color_encodings});
-    fields.field("tone_mapping", value.transform.tone_mapping, io::JsonEnumCodec{tone_mappings});
+    fields.field("format", value.format, config_io::JsonEnumCodec{output_formats});
+    fields.field("color_encoding", value.transform.transfer_function, config_io::JsonEnumCodec{color_encodings});
+    fields.field("tone_mapping", value.transform.tone_mapping, config_io::JsonEnumCodec{tone_mappings});
     fields.field("exposure_ev", value.transform.exposure_ev, ExposureCodec{});
 };
 
@@ -100,7 +99,7 @@ void validate_device(const DeviceSettings& value)
 void from_json(const Json& document, DeviceSettings& value)
 {
     auto candidate = value;
-    io::read_json_fields_in_place(document, candidate, device_fields);
+    config_io::read_json_fields_in_place(document, candidate, device_fields);
     validate_device(candidate);
     value = candidate;
 }
@@ -108,13 +107,13 @@ void from_json(const Json& document, DeviceSettings& value)
 void to_json(Json& document, const DeviceSettings& value)
 {
     validate_device(value);
-    document = io::write_json_fields(value, device_fields);
+    document = config_io::write_json_fields(value, device_fields);
 }
 
 void OutputSettingsCodec::read(const nlohmann::json& document, image_export::ExportSettings& value) const
 {
     auto candidate = value;
-    io::read_json_fields_in_place(document, candidate, output_fields);
+    config_io::read_json_fields_in_place(document, candidate, output_fields);
 
     // 部分読み込みでは，省略されたフィールドの元の値も検査してから反映する
     image_export::validate_export_settings(candidate);

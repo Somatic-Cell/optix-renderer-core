@@ -216,8 +216,8 @@ private:
     static const char* default_message(WorkerPhase phase) noexcept
     {
         switch(phase) {
-        case WorkerPhase::initializing: return "Prepareing sessin...";
-        case WorkerPhase::idle:         return "Session only";
+        case WorkerPhase::initializing: return "Prepareing session...";
+        case WorkerPhase::idle:         return "Session idle";
         case WorkerPhase::queued:       return "Queued";
         case WorkerPhase::running:      return "Running";
         case WorkerPhase::completed:    return "Submission ready";
